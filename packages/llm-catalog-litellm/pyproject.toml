@@ -1,6 +1,6 @@
 [project]
 name = "llm-catalog-litellm"
-version = "0.0.0"
+version = "0.1.0"
 description = "LiteLLM CustomLLM plugin for llm-catalog: drive a catalog.yaml through LiteLLM, in-process or via the proxy config.yaml."
 readme = "README.md"
 requires-python = ">=3.10"
