@@ -1,6 +1,6 @@
 [project]
 name = "llm-catalog-core"
-version = "0.0.0"
+version = "0.1.0"
 description = "Gateway-agnostic core for llm-catalog: config schema, resolver, GatewayTransport, and LiteLLM codegen. Knows nothing about any runtime adapter."
 readme = "README.md"
 requires-python = ">=3.10"
