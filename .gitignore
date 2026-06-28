@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+*.whl
+
+# uv / venv
+.venv/
+
+# tooling caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.ty_cache/
+
+# Local, never-committed config holding real (secret) gateway values.
+# The public repo ships only placeholder examples; real catalog.yaml is data
+# that lives in the user's private environment, not here.
+*.local.yaml
+*.local.yml
+catalog.yaml
+litellm.config.yaml
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "python",
+  "include-component-in-tag": true,
+  "separate-pull-requests": false,
+  "packages": {
+    "packages/llm-catalog-core": {},
+    "packages/llm-catalog-pydantic-ai": {},
+    "packages/llm-catalog-litellm": {}
+  }
+}

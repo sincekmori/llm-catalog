@@ -1,0 +1,119 @@
+# Virtual workspace root for the llm-catalog monorepo.
+#
+# This root declares no [project] of its own — it only wires the three
+# distributions together as a uv workspace and centralises tooling config
+# (ruff / ty / pytest) so every member is linted and type-checked the same way.
+#
+# Distributions (see packages/*):
+#   - llm-catalog-core         -> import llm_catalog.core
+#   - llm-catalog-pydantic-ai  -> import llm_catalog.pydantic_ai
+#   - llm-catalog-litellm      -> import llm_catalog.litellm
+#
+# `llm_catalog` is a PEP 420 namespace package: no distribution ships
+# llm_catalog/__init__.py, so the three subpackages merge into one namespace
+# inside a single venv.
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+# Dev-time resolution: adapters depend on llm-catalog-core via the workspace
+# copy, not PyPI. The published wheels still carry the version constraint from
+# each member's `dependencies`.
+[tool.uv.sources]
+llm-catalog-core = { workspace = true }
+
+# Dev tooling shared across the whole workspace. Installed into the root .venv by
+# `uv sync`. Pinned to recent lower bounds and kept current via `uv lock
+# --upgrade` so checks run against the latest dev libraries.
+[dependency-groups]
+dev = [
+    "ruff>=0.15",
+    "ty>=0.0.55",
+    "pytest>=9",
+    "pytest-asyncio>=1.2",
+    "respx>=0.23",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["packages/*/src", "packages/*/tests"]
+
+[tool.ruff.lint]
+# Enable every rule, then switch off only what's noise for this project.
+select = ["ALL"]
+ignore = [
+    # Formatter conflicts (ruff's own recommendation when using the formatter).
+    "COM812",
+    "ISC001",
+    # pydocstyle: pick one side of each mutually-exclusive pair.
+    "D203",   # one-blank-line-before-class (conflicts with D211)
+    "D213",   # multi-line-summary-second-line (conflicts with D212)
+    # Docstring scope we don't require.
+    "D104",   # missing docstring in public package (namespace pkgs have no __init__)
+    "D107",   # __init__ is documented at the class level
+    # Exception-message style: inline messages are clearer here.
+    "EM101",
+    "EM102",
+    "TRY003",
+    # `Any` is occasionally the honest type (third-party callback signatures).
+    "ANN401",
+    # Local imports are intentional (keep optional deps / runtimes lazy).
+    "PLC0415",
+    # flake8-type-checking assumes `from __future__ import annotations`; we don't
+    # use it (3.10+), so moving these imports into TYPE_CHECKING would break at
+    # runtime. Leave them as normal imports.
+    "TC001",
+    "TC002",
+    "TC003",
+    # TODO hygiene we don't enforce.
+    "TD002",
+    "TD003",
+    "FIX002",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["llm_catalog"]
+
+[tool.ruff.lint.per-file-ignores]
+# The LiteLLM CustomLLM method signatures are fixed by the base class: many
+# parameters are unused, there are a lot of them, and the overrides mirror the
+# base's (undocumented) shape.
+"packages/llm-catalog-litellm/src/llm_catalog/litellm/custom_llm.py" = [
+    "ARG002",  # unused method arguments dictated by the base class
+    "PLR0913", # too many arguments dictated by the base class
+    "D102",    # methods documented via the base class / module docstring
+    "PLR0911", # backend dispatch naturally has several returns
+    "C901",    # the dispatch is simple despite the metric
+]
+# GatewayTransport legitimately takes many configuration arguments, and the
+# per-backend slug/action extraction branches on backend.
+"packages/llm-catalog-core/src/llm_catalog/core/transport.py" = [
+    "PLR0911", # extraction returns once per backend shape
+    "PLR0913", # transports take the full gateway config as arguments
+]
+# The whole-config validation naturally branches over every invariant.
+"packages/llm-catalog-core/src/llm_catalog/core/config.py" = ["C901"]
+# Tests and the throwaway smoke scripts: relax docs/typing/security rules that
+# add noise without value there.
+"packages/*/tests/**" = [
+    "S101",    # asserts are the point of tests
+    "ANN",     # type annotations not required in tests
+    "D",       # docstrings not required in tests
+    "INP001",  # tests dirs are intentionally not packages
+    "PLR2004", # magic values are fine in assertions
+    "SLF001",  # tests may touch private members
+    "ARG001",  # pytest fixtures are passed but not always referenced
+    "N806",    # PascalCase locals (schema classes) read naturally in tests
+]
+
+[tool.ty.environment]
+python-version = "3.10"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = [
+    "packages/llm-catalog-core/tests",
+    "packages/llm-catalog-pydantic-ai/tests",
+    "packages/llm-catalog-litellm/tests",
+]

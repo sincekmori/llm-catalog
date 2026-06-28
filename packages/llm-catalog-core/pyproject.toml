@@ -1,0 +1,46 @@
+[project]
+name = "llm-catalog-core"
+version = "0.0.0"
+description = "Gateway-agnostic core for llm-catalog: config schema, resolver, GatewayTransport, and LiteLLM codegen. Knows nothing about any runtime adapter."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Shinsuke Mori" }]
+keywords = ["llm", "catalog", "gateway", "httpx", "config"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "httpx>=0.27",
+]
+
+[project.urls]
+Homepage = "https://github.com/sincekmori/llm-catalog"
+Repository = "https://github.com/sincekmori/llm-catalog"
+Issues = "https://github.com/sincekmori/llm-catalog/issues"
+Changelog = "https://github.com/sincekmori/llm-catalog/blob/main/packages/llm-catalog-core/CHANGELOG.md"
+
+[project.scripts]
+llm-catalog-codegen = "llm_catalog.core.codegen:main"
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+# PEP 420 namespace: ship only the `llm_catalog/core` subpackage. No
+# llm_catalog/__init__.py is created, so this distribution merges into the shared
+# `llm_catalog` namespace alongside the adapter distributions.
+[tool.uv.build-backend]
+module-name = "llm_catalog.core"
+namespace = true

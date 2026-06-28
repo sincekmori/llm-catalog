@@ -1,0 +1,116 @@
+# Copyright 2026 Shinsuke Mori
+# SPDX-License-Identifier: Apache-2.0
+"""PydanticAICatalog: model/provider kinds, output modes, grounding, and that
+requests reach the gateway at the pathTemplate URL (mock gateway via respx)."""
+
+import contextlib
+
+import httpx
+import pytest
+import respx
+from pydantic import BaseModel
+from pydantic_ai import Agent, NativeOutput, PromptedOutput, ToolOutput
+from pydantic_ai.models.anthropic import AnthropicModel
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
+
+from llm_catalog.core import Catalog, parse_config
+from llm_catalog.core.errors import LLMCatalogError
+from llm_catalog.pydantic_ai import PydanticAICatalog
+
+BASE = "https://gateway.example.invalid/base"
+
+# Minimal vendor responses, just enough for the SDK to parse a reply.
+_ANTHROPIC_RESP = {
+    "id": "msg_1",
+    "type": "message",
+    "role": "assistant",
+    "model": "light-anthropic",
+    "content": [{"type": "text", "text": "hi"}],
+    "stop_reason": "end_turn",
+    "usage": {"input_tokens": 1, "output_tokens": 1},
+}
+_OPENAI_CHAT_RESP = {
+    "id": "x",
+    "object": "chat.completion",
+    "created": 0,
+    "model": "oai-light",
+    "choices": [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "hi"},
+            "finish_reason": "stop",
+        }
+    ],
+    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+}
+
+
+# --- model / provider kinds -------------------------------------------------
+
+
+def test_backend_model_kinds(pac: PydanticAICatalog) -> None:
+    assert isinstance(pac.model_for_role("reasoning"), AnthropicModel)
+    assert isinstance(pac.model_for_role("fast"), OpenAIChatModel)  # api=chat
+    assert isinstance(
+        pac.model_for_role("respond"), OpenAIResponsesModel
+    )  # api=responses
+    assert isinstance(pac.model_for_role("search"), GoogleModel)
+
+
+def test_model_by_key(pac: PydanticAICatalog) -> None:
+    assert isinstance(pac.model("examplegw:light-anthropic"), AnthropicModel)
+
+
+# --- output modes -----------------------------------------------------------
+
+
+class _Schema(BaseModel):
+    value: int
+
+
+def test_output_for_modes(pac: PydanticAICatalog) -> None:
+    Schema = _Schema
+    assert isinstance(pac.output_for("fast", Schema), NativeOutput)  # native
+    assert isinstance(pac.output_for("reasoning", Schema), ToolOutput)  # tool
+    assert isinstance(pac.output_for("respond", Schema), PromptedOutput)  # prompted
+
+
+# --- grounding --------------------------------------------------------------
+
+
+def test_grounding_tools(pac: PydanticAICatalog) -> None:
+    tools = pac.grounding_tools("search")
+    assert len(tools) == 2  # web_search + code_execution
+
+
+def test_grounding_unknown_raises(config_dict: dict) -> None:
+    config_dict["providers"][0]["models"][3]["capabilities"]["grounding"] = ["bogus"]
+    bad = PydanticAICatalog(Catalog(parse_config(config_dict)))
+    with pytest.raises(LLMCatalogError, match="Unknown grounding tool"):
+        bad.grounding_tools("search")
+
+
+# --- reaches the gateway at the rewritten URL -------------------------------
+
+
+async def test_anthropic_reaches_gateway_url(pac: PydanticAICatalog) -> None:
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post(f"{BASE}/anthropic/light-anthropic").mock(
+            return_value=httpx.Response(200, json=_ANTHROPIC_RESP)
+        )
+        agent = Agent(pac.model_for_role("reasoning"))
+        with contextlib.suppress(Exception):
+            await agent.run("hi")
+    assert route.called
+
+
+async def test_openai_chat_reaches_gateway_url(pac: PydanticAICatalog) -> None:
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post(f"{BASE}/gpt/oai-light").mock(
+            return_value=httpx.Response(200, json=_OPENAI_CHAT_RESP)
+        )
+        agent = Agent(pac.model_for_role("fast"))
+        with contextlib.suppress(Exception):
+            await agent.run("hi")
+    assert route.called

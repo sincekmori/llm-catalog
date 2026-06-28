@@ -1,0 +1,87 @@
+# Automated, changeset-style releases for the three distributions.
+#
+# release-please reads Conventional Commits on main and opens/maintains a release
+# PR per change: it bumps each affected package's version in its pyproject.toml,
+# updates its CHANGELOG.md, and (when the PR is merged) tags + creates a GitHub
+# Release per package (e.g. llm-catalog-core-v0.2.0). Each released package is
+# then built and published to PyPI via Trusted Publishing (OIDC, no API token).
+#
+# This is GitHub-only (release-please + PyPI Trusted Publishing).
+#
+# One-time setup before the first publish:
+#   - PyPI pending publishers are unique per (owner, repo, workflow, environment),
+#     so each project needs a DISTINCT environment. On PyPI register a pending
+#     Trusted Publisher for each (owner: sincekmori, repo: llm-catalog, workflow:
+#     release.yml) with environment pypi-core / pypi-pydantic-ai / pypi-litellm.
+#   - Create the matching GitHub Environments with those same three names.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Never run two releases for the same branch at once, and never cancel a release
+# midway (which could tag without publishing).
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      paths_released: ${{ steps.release.outputs.paths_released }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # One publish job per package: PyPI pending publishers are unique per
+  # (owner, repo, workflow, environment), so each package needs its own
+  # environment. Each job only runs when release-please released that package.
+  publish-core:
+    needs: release-please
+    if: contains(needs.release-please.outputs.paths_released, 'packages/llm-catalog-core')
+    runs-on: ubuntu-latest
+    environment: pypi-core
+    permissions:
+      id-token: write # PyPI Trusted Publishing
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv build --package llm-catalog-core --out-dir dist
+      - run: uv publish
+
+  publish-pydantic-ai:
+    needs: release-please
+    if: contains(needs.release-please.outputs.paths_released, 'packages/llm-catalog-pydantic-ai')
+    runs-on: ubuntu-latest
+    environment: pypi-pydantic-ai
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv build --package llm-catalog-pydantic-ai --out-dir dist
+      - run: uv publish
+
+  publish-litellm:
+    needs: release-please
+    if: contains(needs.release-please.outputs.paths_released, 'packages/llm-catalog-litellm')
+    runs-on: ubuntu-latest
+    environment: pypi-litellm
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv build --package llm-catalog-litellm --out-dir dist
+      - run: uv publish
