@@ -34,7 +34,7 @@ Issues = "https://github.com/sincekmori/llm-catalog/issues"
 Changelog = "https://github.com/sincekmori/llm-catalog/blob/main/packages/llm-catalog-litellm/CHANGELOG.md"
 
 [build-system]
-requires = ["uv_build>=0.11,<0.12"]
+requires = ["uv_build>=0.11.26,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

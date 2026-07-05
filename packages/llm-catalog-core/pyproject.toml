@@ -36,7 +36,7 @@ Changelog = "https://github.com/sincekmori/llm-catalog/blob/main/packages/llm-ca
 llm-catalog-codegen = "llm_catalog.core.codegen:main"
 
 [build-system]
-requires = ["uv_build>=0.11,<0.12"]
+requires = ["uv_build>=0.11.26,<0.12"]
 build-backend = "uv_build"
 
 # PEP 420 namespace: ship only the `llm_catalog/core` subpackage. No
