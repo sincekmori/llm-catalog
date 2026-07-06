@@ -28,7 +28,7 @@ llm-catalog-core = { workspace = true }
 [dependency-groups]
 dev = [
     "ruff>=0.15",
-    "ty>=0.0.55",
+    "ty>=0.0.56",
     "pytest>=9",
     "pytest-asyncio>=1.2",
     "respx>=0.23",
