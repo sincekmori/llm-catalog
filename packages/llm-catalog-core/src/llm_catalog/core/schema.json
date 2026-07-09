@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Backend": {
+      "additionalProperties": false,
+      "description": "How one upstream backend is laid out on the gateway.\n\n``path_template`` is the path (relative to the gateway ``base_url``) the\ngateway expects, with ``{slug}`` (the model) and \u2014 for the ``google``\nbackend, whose model lives in the URL \u2014 ``{action}`` (the operation)\nplaceholders. ``action_map`` (google only) renames an operation to the\ngateway's name (e.g. ``streamGenerateContent`` ->\n``customStreamGenerateContent``); operations not listed pass through\nunchanged. ``name`` (openai-compatible only) sets the metadata namespace.",
+      "properties": {
+        "pathTemplate": {
+          "title": "Pathtemplate",
+          "type": "string"
+        },
+        "actionMap": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Actionmap",
+          "type": "object"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        }
+      },
+      "required": [
+        "pathTemplate"
+      ],
+      "title": "Backend",
+      "type": "object"
+    },
+    "Gateway": {
+      "additionalProperties": false,
+      "description": "Where the gateway lives, its key, and its topology.\n\n``api_key`` is a literal key value (for a local endpoint); when omitted the\nkey is read at call time from the environment variable named by\n``api_key_env`` (default ``AI_GATEWAY_API_KEY``, matching ai-sdk-catalog).",
+      "properties": {
+        "baseURL": {
+          "title": "Baseurl",
+          "type": "string"
+        },
+        "apiKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Apikey"
+        },
+        "apiKeyEnvVarName": {
+          "default": "AI_GATEWAY_API_KEY",
+          "title": "Apikeyenvvarname",
+          "type": "string"
+        },
+        "backends": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Backend"
+          },
+          "propertyNames": {
+            "enum": [
+              "anthropic",
+              "openai",
+              "openai-compatible",
+              "mistral",
+              "cohere",
+              "groq",
+              "xai",
+              "deepseek",
+              "perplexity",
+              "google"
+            ]
+          },
+          "title": "Backends",
+          "type": "object"
+        }
+      },
+      "required": [
+        "baseURL",
+        "backends"
+      ],
+      "title": "Gateway",
+      "type": "object"
+    },
+    "ModelCapabilities": {
+      "additionalProperties": false,
+      "description": "Python-side capability hints, namespaced under ``capabilities:``.\n\nThese are optional and ignored by the TypeScript side (whose runtime strips\nunknown keys). They tell the adapters how to drive a model without\nhardcoding anything gateway-specific.",
+      "properties": {
+        "structuredOutput": {
+          "default": "native",
+          "enum": [
+            "native",
+            "tool",
+            "prompted"
+          ],
+          "title": "Structuredoutput",
+          "type": "string"
+        },
+        "multiStepTools": {
+          "default": true,
+          "title": "Multisteptools",
+          "type": "boolean"
+        },
+        "grounding": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Grounding",
+          "type": "array"
+        }
+      },
+      "title": "ModelCapabilities",
+      "type": "object"
+    },
+    "ModelEntry": {
+      "additionalProperties": false,
+      "description": "One model a provider serves, tagged with the backend that handles it.\n\n``api`` picks the call surface for backends that have more than one\n(``responses`` | ``chat`` | ``completion``); omit it for the backend's\ndefault. It mirrors ai-sdk-catalog's ``ModelApi`` \u2014 adapters use it where it\napplies and ignore it elsewhere.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "backend": {
+          "enum": [
+            "anthropic",
+            "openai",
+            "openai-compatible",
+            "mistral",
+            "cohere",
+            "groq",
+            "xai",
+            "deepseek",
+            "perplexity",
+            "google"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "slug": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slug"
+        },
+        "api": {
+          "anyOf": [
+            {
+              "enum": [
+                "responses",
+                "chat",
+                "completion"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api"
+        },
+        "settings": {
+          "additionalProperties": true,
+          "title": "Settings",
+          "type": "object"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/ModelCapabilities"
+        }
+      },
+      "required": [
+        "id",
+        "backend"
+      ],
+      "title": "ModelEntry",
+      "type": "object"
+    },
+    "Provider": {
+      "additionalProperties": false,
+      "description": "A gateway provider and the models it serves.\n\n``settings`` are provider-level call defaults; each model's own ``settings``\nare merged on top (model wins).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "gateway": {
+          "$ref": "#/$defs/Gateway"
+        },
+        "settings": {
+          "additionalProperties": true,
+          "title": "Settings",
+          "type": "object"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/ModelEntry"
+          },
+          "title": "Models",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "gateway",
+        "models"
+      ],
+      "title": "Provider",
+      "type": "object"
+    },
+    "RoleRef": {
+      "additionalProperties": false,
+      "description": "A role points at exactly one ``(provider, model)`` pair.",
+      "properties": {
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model"
+      ],
+      "title": "RoleRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The whole catalog: providers plus the roles an app references.\n\nStructural validation lives in the field schemas; whole-config invariants\n(uniqueness, backend coherence, referential integrity) live in the\n``model_validator`` below, where the full object is available. Every issue\nis collected before raising, so one round trip surfaces them all.",
+  "properties": {
+    "$schema": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "$Schema"
+    },
+    "providers": {
+      "items": {
+        "$ref": "#/$defs/Provider"
+      },
+      "title": "Providers",
+      "type": "array"
+    },
+    "roles": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RoleRef"
+      },
+      "title": "Roles",
+      "type": "object"
+    }
+  },
+  "required": [
+    "providers"
+  ],
+  "title": "CatalogConfig",
+  "type": "object"
+}

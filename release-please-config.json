@@ -3,6 +3,8 @@
   "release-type": "python",
   "include-component-in-tag": true,
   "separate-pull-requests": false,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
   "packages": {
     "packages/llm-catalog-core": { "component": "llm-catalog-core" },
     "packages/llm-catalog-pydantic-ai": { "component": "llm-catalog-pydantic-ai" },

@@ -7,8 +7,8 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![ty](https://img.shields.io/badge/types-ty-261230)](https://github.com/astral-sh/ty)
 
-Drive multiple LLM runtimes from one declarative `catalog.yaml` — implement nothing, configure once.
-It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the same config structure.
+Drive multiple LLM runtimes from one declarative JSON config — implement nothing, configure once.
+It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `llm-catalog.json` drives TypeScript and Python alike.
 You reference a **role** name (`fast`, `reasoning`, `search`, …) and it resolves to a concrete model behind your own LLM gateway.
 
 It targets two runtimes from the same config and the same core.
@@ -25,11 +25,11 @@ Three independently versioned distributions form a uv workspace and share the PE
 
 | Distribution | PyPI | Import | Depends on |
 |---|---|---|---|
-| [`llm-catalog-core`](packages/llm-catalog-core) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-core)](https://pypi.org/project/llm-catalog-core/) | `llm_catalog.core` | `pydantic`, `pyyaml`, `httpx` |
+| [`llm-catalog-core`](packages/llm-catalog-core) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-core)](https://pypi.org/project/llm-catalog-core/) | `llm_catalog.core` | `pydantic`, `httpx` |
 | [`llm-catalog-pydantic-ai`](packages/llm-catalog-pydantic-ai) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-pydantic-ai)](https://pypi.org/project/llm-catalog-pydantic-ai/) | `llm_catalog.pydantic_ai` | core + `pydantic-ai` |
 | [`llm-catalog-litellm`](packages/llm-catalog-litellm) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-litellm)](https://pypi.org/project/llm-catalog-litellm/) | `llm_catalog.litellm` | core + `litellm>=1.90.0` |
 
-`llm-catalog-core` holds the config schema, loader, resolver, `GatewayTransport`, and LiteLLM codegen, and knows no runtime.
+`llm-catalog-core` holds the config schema, validation, resolver, `GatewayTransport`, and LiteLLM codegen, and knows no runtime (and touches no filesystem).
 The two adapters depend only on core; core imports neither adapter.
 
 **Why three distributions, not one with extras?**
@@ -44,46 +44,67 @@ pip install llm-catalog-litellm       # LiteLLM plugin (pulls in core)
 pip install llm-catalog-core          # core only (config / resolve / codegen)
 ```
 
-## `catalog.yaml`
+## The config: `llm-catalog.json`
 
+The config format is **JSON**, shared verbatim with `ai-sdk-catalog` — write one file and hand it to both runtimes.
 Roles point at a `(provider, model)`, and each model names the gateway `backend` that serves it.
-camelCase keys (`baseURL`, `apiKeyEnvVarName`, `pathTemplate`, `actionMap`) are accepted as-is for parity with `ai-sdk-catalog`.
-See [`examples/catalog.example.yaml`](examples/catalog.example.yaml) for the full placeholder file.
+See [`examples/llm-catalog.example.json`](examples/llm-catalog.example.json) for the full placeholder file.
 
-```yaml
-providers:
-  - id: examplegw
-    gateway:
-      baseURL: https://gateway.example.invalid/base
-      apiKeyEnvVarName: EXAMPLEGW_API_KEY      # env var NAME (value stays in env)
-      backends:
-        anthropic: { pathTemplate: "anthropic/{slug}" }
-        openai:    { pathTemplate: "gpt/{slug}" }
-        google:
-          pathTemplate: "gemini/{slug}:{action}"
-          actionMap: { streamGenerateContent: customStreamGenerateContent }
-    models:
-      - { id: light-openai, backend: openai, api: chat }
-      - { id: light-anthropic, backend: anthropic }
-      - { id: search-google, backend: google }
-roles:
-  fast:      { provider: examplegw, model: light-openai }
-  reasoning: { provider: examplegw, model: light-anthropic }
-  search:    { provider: examplegw, model: search-google }
+```json
+{
+  "$schema": "./node_modules/ai-sdk-catalog/schema.json",
+  "providers": [
+    {
+      "id": "examplegw",
+      "gateway": {
+        "baseURL": "https://gateway.example.invalid/base",
+        "apiKeyEnvVarName": "EXAMPLEGW_API_KEY",
+        "backends": {
+          "anthropic": { "pathTemplate": "anthropic/{slug}" },
+          "openai": { "pathTemplate": "gpt/{slug}" },
+          "google": {
+            "pathTemplate": "gemini/{slug}:{action}",
+            "actionMap": { "streamGenerateContent": "customStreamGenerateContent" }
+          }
+        }
+      },
+      "models": [
+        { "id": "light-openai", "backend": "openai", "api": "chat" },
+        { "id": "light-anthropic", "backend": "anthropic" },
+        { "id": "search-google", "backend": "google" }
+      ]
+    }
+  ],
+  "roles": {
+    "fast": { "provider": "examplegw", "model": "light-openai" },
+    "reasoning": { "provider": "examplegw", "model": "light-anthropic" },
+    "search": { "provider": "examplegw", "model": "search-google" }
+  }
+}
 ```
+
+`llm-catalog-core` ships the schema as `schema.json` inside the package (`llm_catalog/core/schema.json`; also exposed as `llm_catalog.core.config_json_schema()`), so editors validate and autocomplete the file — point `"$schema"` at whichever side's schema fits your repo.
+The Python-only `capabilities` block (structured-output mode, grounding tools) is stripped by `ai-sdk-catalog`'s runtime, so a file using it still drives both sides; prefer this package's schema for editor validation then.
+
+Loading is explicit and filesystem-free in every package: read the file yourself and hand the parsed mapping over.
+To keep using YAML, parse it yourself and pass the result the same way (`Catalog(yaml.safe_load(text))`).
 
 ## Usage
 
 ### 1. Pydantic AI (in-process)
 
 ```python
+import json
+from pathlib import Path
+
 from pydantic_ai import Agent
 from llm_catalog.pydantic_ai import PydanticAICatalog
 
-cat = PydanticAICatalog.from_file("catalog.yaml")
+config = json.loads(Path("llm-catalog.json").read_text(encoding="utf-8"))
+cat = PydanticAICatalog(config)  # validates the config itself
 agent = Agent(cat.model_for_role("fast"))
 
-# structured output mode follows capabilities.structured_output (native/tool/prompted)
+# structured output mode follows capabilities.structuredOutput (native/tool/prompted)
 out = cat.output_for("reasoning", MySchema)
 # grounding tools mapped from capabilities.grounding
 tools = cat.grounding_tools("search")
@@ -98,7 +119,7 @@ Call `register()` once to wire the handler into LiteLLM, then use `litellm` as u
 ```python
 from llm_catalog.litellm import register
 
-register()   # reads catalog.yaml (LLM_CATALOG_CONFIG or default path)
+register()   # reads llm-catalog.json (LLM_CATALOG_CONFIG or default path)
 
 import litellm
 
@@ -119,21 +140,23 @@ The system key lives in the proxy's env, and each user gets a **virtual key** to
 ```bash
 pip install llm-catalog-litellm
 export EXAMPLEGW_API_KEY=...                 # gateway system key
-export LLM_CATALOG_CONFIG=/path/catalog.yaml
+export LLM_CATALOG_CONFIG=/path/llm-catalog.json
 export LITELLM_MASTER_KEY=...
 litellm --config litellm.proxy.example.yaml
 ```
 
-The handler resolves each model from `catalog.yaml` itself, so `config.yaml`'s `litellm_params` needs no gateway details (sidesteps LiteLLM #18216).
+The handler resolves each model from `llm-catalog.json` itself, so the proxy config's `litellm_params` needs no gateway details (sidesteps LiteLLM #18216).
 The proxy references `llm_catalog.litellm.handler` directly, so it does not call `register()`.
 
 ### Alternative: generate a native LiteLLM config (no plugin)
 
-`llm-catalog-core` alone can emit a plain LiteLLM `config.yaml` using LiteLLM's built-in providers.
+`llm-catalog-core` alone can emit a plain LiteLLM proxy config using LiteLLM's built-in providers.
+The output is JSON — a subset of YAML, so LiteLLM's config loader reads it directly.
 
 ```bash
-python -m llm_catalog.core.codegen catalog.yaml -o litellm.config.yaml
-# or: llm-catalog-codegen catalog.yaml -o litellm.config.yaml
+llm-catalog-codegen llm-catalog.json -o litellm.config.json
+# or: python -m llm_catalog.core.codegen llm-catalog.json -o litellm.config.json
+litellm --config litellm.config.json
 ```
 
 This lean alternative does not honour a custom `pathTemplate` or native grounding, because it relies on LiteLLM's built-in path construction.
@@ -142,8 +165,8 @@ Use the `llm-catalog-litellm` plugin when those matter.
 ## Public / private boundary (strict)
 
 This (public) repository ships generic code, placeholder examples, and mock tests only — no real base URLs, model ids, or capability values.
-Your real `catalog.yaml` is private data, distributed inside your org, and is never committed here.
-Secrets (API keys) live only in env or a secret manager; `.gitignore` excludes `*.local.yaml`, `catalog.yaml`, and `.env*`.
+Your real `llm-catalog.json` is private data, distributed inside your org, and is never committed here.
+Secrets (API keys) live only in env or a secret manager; `.gitignore` excludes `*.local.json`, `llm-catalog.json`, and `.env*`.
 
 ## Verification notes (§9 — confirm against your real gateway)
 

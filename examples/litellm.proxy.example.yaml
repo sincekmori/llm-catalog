@@ -1,14 +1,16 @@
 # Example LiteLLM proxy config that references the llm-catalog plugin.
+# (This is LiteLLM's own config format, hence YAML; the catalog config itself
+# is JSON — see llm-catalog.example.json.)
 #
 # PLACEHOLDERS ONLY. The gateway's real base URL / model ids live in your private
-# catalog.yaml (pointed to by LLM_CATALOG_CONFIG), never here. The handler
+# llm-catalog.json (pointed to by LLM_CATALOG_CONFIG), never here. The handler
 # resolves everything from that catalog itself, so litellm_params carries only
 # the "{provider}/{role}" model string -- no gateway details (sidesteps #18216).
 #
 # Run:
 #   pip install llm-catalog-litellm           # core comes in as a dependency
 #   export EXAMPLEGW_API_KEY=...              # gateway system key
-#   export LLM_CATALOG_CONFIG=/path/catalog.yaml
+#   export LLM_CATALOG_CONFIG=/path/llm-catalog.json
 #   export LITELLM_MASTER_KEY=...             # for issuing virtual keys
 #   litellm --config litellm.proxy.example.yaml
 

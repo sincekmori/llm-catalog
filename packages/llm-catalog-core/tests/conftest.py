@@ -9,7 +9,7 @@ import pytest
 
 @pytest.fixture
 def config_dict() -> dict[str, Any]:
-    """A minimal, valid catalog using camelCase keys (as YAML would)."""
+    """A minimal, valid catalog in its file form (camelCase keys, as JSON)."""
     return {
         "providers": [
             {
@@ -33,7 +33,7 @@ def config_dict() -> dict[str, Any]:
                     {
                         "id": "light-anthropic",
                         "backend": "anthropic",
-                        "capabilities": {"structured_output": "tool"},
+                        "capabilities": {"structuredOutput": "tool"},
                     },
                     {
                         "id": "light-openai",
@@ -46,7 +46,7 @@ def config_dict() -> dict[str, Any]:
                         "id": "search-google",
                         "backend": "google",
                         "capabilities": {
-                            "multi_step_tools": False,
+                            "multiStepTools": False,
                             "grounding": ["web_search"],
                         },
                     },

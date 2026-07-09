@@ -17,10 +17,13 @@ dist/
 .ty_cache/
 
 # Local, never-committed config holding real (secret) gateway values.
-# The public repo ships only placeholder examples; real catalog.yaml is data
-# that lives in the user's private environment, not here.
+# The public repo ships only placeholder examples; a real llm-catalog.json is
+# data that lives in the user's private environment, not here.
+*.local.json
 *.local.yaml
 *.local.yml
+llm-catalog.json
+litellm.config.json
 catalog.yaml
 litellm.config.yaml
 .env

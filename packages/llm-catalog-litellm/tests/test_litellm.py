@@ -5,9 +5,10 @@ resolution, and self-resolution (no gateway details in litellm_params)."""
 
 import httpx
 import litellm
+import pytest
 import respx
 
-from llm_catalog.core import Catalog, parse_config
+from llm_catalog.core import Catalog
 
 BASE = "https://gateway.example.invalid/base"
 
@@ -125,8 +126,30 @@ def test_self_resolves_without_litellm_params(config_dict) -> None:
     # given only the model name + provider, it produces a full ResolvedModel.
     from llm_catalog.litellm import ChatCatalogLLM
 
-    h = ChatCatalogLLM(catalog=Catalog(parse_config(config_dict)))
+    h = ChatCatalogLLM(catalog=Catalog(config_dict))
     rm = h._resolve("fast", {"custom_llm_provider": "examplegw"})
     assert rm.backend == "openai"
     assert rm.base_url == BASE
     assert rm.api_key_env == "EXAMPLEGW_API_KEY"
+
+
+def test_get_catalog_reads_config_json(tmp_path, config_dict) -> None:
+    import json
+
+    from llm_catalog.litellm import ChatCatalogLLM
+
+    path = tmp_path / "llm-catalog.json"
+    path.write_text(json.dumps(config_dict), encoding="utf-8")
+    h = ChatCatalogLLM(config_path=path)
+    assert set(h.get_catalog().roles) == {"fast", "reasoning"}
+
+
+def test_get_catalog_rejects_non_json(tmp_path) -> None:
+    from llm_catalog.core import ConfigError
+    from llm_catalog.litellm import ChatCatalogLLM
+
+    path = tmp_path / "llm-catalog.json"
+    path.write_text("providers: []", encoding="utf-8")  # YAML, not JSON
+    h = ChatCatalogLLM(config_path=path)
+    with pytest.raises(ConfigError, match="not valid JSON"):
+        h.get_catalog()

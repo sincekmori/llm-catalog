@@ -1,7 +1,7 @@
 [project]
 name = "llm-catalog-litellm"
 version = "0.2.0"
-description = "LiteLLM CustomLLM plugin for llm-catalog: drive a catalog.yaml through LiteLLM, in-process or via the proxy config.yaml."
+description = "LiteLLM CustomLLM plugin for llm-catalog: drive a catalog config through LiteLLM, in-process or via the proxy."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -21,7 +21,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "llm-catalog-core>=0.1,<0.2",
+    "llm-catalog-core>=0.3,<0.4",
     # Floor at the verified version (also past the 1.82.7/1.82.8 supply-chain incident).
     "litellm>=1.90.0",
     "httpx>=0.27",

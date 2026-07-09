@@ -1,18 +1,19 @@
 # Copyright 2026 Shinsuke Mori
 # SPDX-License-Identifier: Apache-2.0
-"""A LiteLLM ``CustomLLM`` that drives a ``catalog.yaml`` through the gateway.
+"""A LiteLLM ``CustomLLM`` that drives a catalog config through the gateway.
 
 One implementation serves both deployment shapes:
 
 * **in-process** — call :func:`llm_catalog.litellm.register` once to wire the
   module-level :data:`handler` into LiteLLM, then
   ``litellm.completion("examplegw/fast", ...)`` works; and
-* **proxy** — ``config.yaml`` references ``llm_catalog.litellm.handler`` from its
-  ``custom_provider_map`` (no ``register`` call needed).
+* **proxy** — the proxy config references ``llm_catalog.litellm.handler`` from
+  its ``custom_provider_map`` (no ``register`` call needed).
 
-Resolution is self-contained: the handler reads ``catalog.yaml`` itself and
-resolves the role/model from it, so the proxy never needs gateway details in
-``litellm_params`` (sidestepping LiteLLM issue #18216).
+Resolution is self-contained: the handler reads the catalog config JSON itself
+(``LLM_CATALOG_CONFIG`` or ``llm-catalog.json``) and resolves the role/model
+from it, so the proxy never needs gateway details in ``litellm_params``
+(sidestepping LiteLLM issue #18216).
 
 Upstream strategy (route 1 of the spec's §6.2)
 ----------------------------------------------
@@ -26,6 +27,7 @@ client, the documented fallback — §6.2 route 2 — is to convert native respo
 to ``ModelResponse`` / ``GenericStreamingChunk`` by hand.)
 """
 
+import json
 import os
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
@@ -45,12 +47,15 @@ from llm_catalog.core import (
     GatewayTransportSync,
     ResolvedModel,
 )
-from llm_catalog.core.errors import ResolutionError
+from llm_catalog.core.errors import ConfigError, ResolutionError
 
 __all__ = ["CONFIG_ENV_VAR", "ChatCatalogLLM"]
 
-# Environment variable naming the catalog.yaml location (in-process & proxy).
+# Environment variable naming the catalog config JSON (in-process & proxy).
 CONFIG_ENV_VAR = "LLM_CATALOG_CONFIG"
+
+# Default config location when CONFIG_ENV_VAR is unset.
+_DEFAULT_CONFIG_PATH = "llm-catalog.json"
 
 # catalog backend -> LiteLLM built-in provider prefix used for the inner call.
 _BACKEND_TO_LITELLM: dict[str, str] = {
@@ -72,10 +77,23 @@ class ChatCatalogLLM(CustomLLM):
     # --- config / resolution ------------------------------------------------
 
     def get_catalog(self) -> Catalog:
-        """Return the catalog, loading it from disk on first use."""
+        """Return the catalog, loading its config JSON from disk on first use.
+
+        This adapter is the deployment edge (the proxy points at a file via
+        ``LLM_CATALOG_CONFIG``), so the file read lives here — core itself
+        never touches the filesystem.
+        """
         if self._catalog is None:
-            path = self._config_path or os.environ.get(CONFIG_ENV_VAR) or "catalog.yaml"
-            self._catalog = Catalog.from_file(path)
+            path = Path(
+                self._config_path
+                or os.environ.get(CONFIG_ENV_VAR)
+                or _DEFAULT_CONFIG_PATH
+            )
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise ConfigError(f"{path}: not valid JSON: {exc}") from exc
+            self._catalog = Catalog(data)
         return self._catalog
 
     def set_catalog(self, catalog: Catalog) -> None:
@@ -110,7 +128,16 @@ class ChatCatalogLLM(CustomLLM):
         litellm_params: dict[str, Any] | None,
     ) -> tuple[ResolvedModel, str, dict[str, Any]]:
         rm = self._resolve(model, litellm_params)
-        inner_model = f"{_BACKEND_TO_LITELLM[rm.backend]}/{rm.slug}"
+        prefix = _BACKEND_TO_LITELLM.get(rm.backend)
+        if prefix is None:
+            # The config schema accepts every ai-sdk-catalog backend so a shared
+            # file validates as-is; this adapter can only drive these three.
+            raise ResolutionError(
+                f'Backend "{rm.backend}" (model "{rm.provider_id}:{rm.model_id}") '
+                "is not supported by the LiteLLM adapter. Supported backends: "
+                f"{sorted(_BACKEND_TO_LITELLM)}."
+            )
+        inner_model = f"{prefix}/{rm.slug}"
         # provider/model settings are defaults; the caller's params win.
         params: dict[str, Any] = {**rm.settings, **(optional_params or {})}
         params.pop("stream", None)  # set explicitly per method

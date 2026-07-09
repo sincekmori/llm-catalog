@@ -32,6 +32,9 @@ dev = [
     "pytest>=9",
     "pytest-asyncio>=1.2",
     "respx>=0.23",
+    # Test-only: asserts the generated LiteLLM config (JSON) also parses as
+    # YAML, the way LiteLLM's proxy loads it. The shipped packages use no YAML.
+    "pyyaml>=6.0",
 ]
 
 [tool.ruff]
@@ -93,7 +96,9 @@ known-first-party = ["llm_catalog"]
     "PLR0913", # transports take the full gateway config as arguments
 ]
 # The whole-config validation naturally branches over every invariant.
-"packages/llm-catalog-core/src/llm_catalog/core/config.py" = ["C901"]
+"packages/llm-catalog-core/src/llm_catalog/core/config.py" = ["C901", "PLR0912"]
+# Dev scripts (schema generation, ...): not packages, print is their output.
+"packages/*/scripts/**" = ["INP001", "T201", "D103"]
 # Tests and the throwaway smoke scripts: relax docs/typing/security rules that
 # add noise without value there.
 "packages/*/tests/**" = [

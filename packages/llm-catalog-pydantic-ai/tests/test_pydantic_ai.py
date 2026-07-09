@@ -14,7 +14,7 @@ from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 
-from llm_catalog.core import Catalog, parse_config
+from llm_catalog.core import Catalog
 from llm_catalog.core.errors import LLMCatalogError
 from llm_catalog.pydantic_ai import PydanticAICatalog
 
@@ -62,6 +62,32 @@ def test_model_by_key(pac: PydanticAICatalog) -> None:
     assert isinstance(pac.model("examplegw:light-anthropic"), AnthropicModel)
 
 
+def test_accepts_plain_config_mapping(config_dict: dict) -> None:
+    # The wrapper validates raw config itself, like the core Catalog.
+    pac = PydanticAICatalog(config_dict)
+    assert isinstance(pac.model_for_role("reasoning"), AnthropicModel)
+
+
+def test_unsupported_backend_raises_at_use(config_dict: dict) -> None:
+    # A shared config may route some backends only from the TypeScript side;
+    # they validate fine and fail here only when actually used.
+    gw = config_dict["providers"][0]["gateway"]
+    gw["backends"]["mistral"] = {"pathTemplate": "mistral/{slug}"}
+    config_dict["providers"][0]["models"].append(
+        {"id": "m-large", "backend": "mistral"}
+    )
+    pac = PydanticAICatalog(config_dict)
+    with pytest.raises(LLMCatalogError, match="not supported by the Pydantic AI"):
+        pac.model("examplegw:m-large")
+
+
+def test_completion_api_raises(config_dict: dict) -> None:
+    config_dict["providers"][0]["models"][1]["api"] = "completion"
+    pac = PydanticAICatalog(config_dict)
+    with pytest.raises(LLMCatalogError, match="Completions API"):
+        pac.model_for_role("fast")
+
+
 # --- output modes -----------------------------------------------------------
 
 
@@ -86,7 +112,7 @@ def test_grounding_tools(pac: PydanticAICatalog) -> None:
 
 def test_grounding_unknown_raises(config_dict: dict) -> None:
     config_dict["providers"][0]["models"][3]["capabilities"]["grounding"] = ["bogus"]
-    bad = PydanticAICatalog(Catalog(parse_config(config_dict)))
+    bad = PydanticAICatalog(Catalog(config_dict))
     with pytest.raises(LLMCatalogError, match="Unknown grounding tool"):
         bad.grounding_tools("search")
 

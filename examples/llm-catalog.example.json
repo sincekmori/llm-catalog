@@ -1,0 +1,60 @@
+{
+  "$schema": "../packages/llm-catalog-core/src/llm_catalog/core/schema.json",
+  "providers": [
+    {
+      "id": "examplegw",
+      "gateway": {
+        "baseURL": "https://gateway.example.invalid/base",
+        "apiKeyEnvVarName": "EXAMPLEGW_API_KEY",
+        "backends": {
+          "anthropic": {
+            "pathTemplate": "anthropic/{slug}"
+          },
+          "openai": {
+            "pathTemplate": "gpt/{slug}"
+          },
+          "google": {
+            "pathTemplate": "gemini/{slug}:{action}",
+            "actionMap": {
+              "streamGenerateContent": "customStreamGenerateContent"
+            }
+          }
+        }
+      },
+      "settings": {
+        "temperature": 0
+      },
+      "models": [
+        {
+          "id": "light-anthropic",
+          "backend": "anthropic",
+          "capabilities": {
+            "structuredOutput": "tool"
+          }
+        },
+        {
+          "id": "light-openai",
+          "backend": "openai",
+          "slug": "light-openai",
+          "api": "chat",
+          "capabilities": {
+            "structuredOutput": "native"
+          }
+        },
+        {
+          "id": "search-google",
+          "backend": "google",
+          "capabilities": {
+            "multiStepTools": false,
+            "grounding": ["web_search", "url_context", "code_execution"]
+          }
+        }
+      ]
+    }
+  ],
+  "roles": {
+    "fast": { "provider": "examplegw", "model": "light-openai" },
+    "reasoning": { "provider": "examplegw", "model": "light-anthropic" },
+    "search": { "provider": "examplegw", "model": "search-google" }
+  }
+}

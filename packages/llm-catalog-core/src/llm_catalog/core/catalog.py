@@ -2,32 +2,77 @@
 # SPDX-License-Identifier: Apache-2.0
 """The gateway-agnostic resolution entry point.
 
-:class:`Catalog` is the centre of ``llm-catalog-core``. It does **resolution
-only**: role/key -> :class:`ResolvedModel`. It returns no Pydantic AI / LiteLLM
-objects (those live in the adapter distributions), so importing it pulls in
-neither runtime.
+:class:`Catalog` is the centre of ``llm-catalog-core``. It validates its own
+input — hand it the mapping you parsed from JSON (or a ready
+:class:`CatalogConfig`) — and does **resolution only**: role/key ->
+:class:`ResolvedModel`. It returns no Pydantic AI / LiteLLM objects (those live
+in the adapter distributions), so importing it pulls in neither runtime, and it
+never touches the filesystem:
+
+    import json
+    from pathlib import Path
+    from llm_catalog.core import Catalog
+
+    config = json.loads(Path("llm-catalog.json").read_text(encoding="utf-8"))
+    catalog = Catalog(config)
 """
 
-from pathlib import Path
+from collections.abc import Mapping
+from typing import Any
 
-from .config import CatalogConfig, ModelEntry, Provider, load_config
-from .errors import ResolutionError
+from pydantic import ValidationError
+
+from .config import (
+    CatalogConfig,
+    ModelEntry,
+    Provider,
+    format_validation_error,
+)
+from .errors import ConfigError, ResolutionError
 from .resolve import ResolvedModel
 
 __all__ = ["Catalog"]
 
 
-class Catalog:
-    """Resolves roles and ``provider:model`` keys to :class:`ResolvedModel`."""
+def _merge_settings(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Merge call settings, override winning for scalar fields.
 
-    def __init__(self, config: CatalogConfig) -> None:
+    ``providerOptions`` is merged per provider namespace so a model can add or
+    override individual options without dropping the provider-level ones
+    (mirroring ai-sdk-catalog's merge).
+    """
+    merged = {**base, **override}
+    base_po = base.get("providerOptions")
+    override_po = override.get("providerOptions")
+    if isinstance(base_po, dict) and isinstance(override_po, dict):
+        po: dict[str, Any] = dict(base_po)
+        for ns, opts in override_po.items():
+            existing = po.get(ns)
+            if isinstance(existing, dict) and isinstance(opts, dict):
+                po[ns] = {**existing, **opts}
+            else:
+                po[ns] = opts
+        merged["providerOptions"] = po
+    return merged
+
+
+class Catalog:
+    """Resolves roles and ``provider:model`` keys to :class:`ResolvedModel`.
+
+    The constructor validates its input itself: pass the plain mapping you
+    parsed from JSON (or built in code) and invalid input raises
+    :class:`ConfigError` with a readable issue list. A ready
+    :class:`CatalogConfig` passes through as-is.
+    """
+
+    def __init__(self, config: CatalogConfig | Mapping[str, Any]) -> None:
+        if not isinstance(config, CatalogConfig):
+            try:
+                config = CatalogConfig.model_validate(dict(config))
+            except ValidationError as exc:
+                raise ConfigError(format_validation_error(exc)) from exc
         self._config = config
         self._providers: dict[str, Provider] = {p.id: p for p in config.providers}
-
-    @classmethod
-    def from_file(cls, path: str | Path) -> "Catalog":
-        """Load and validate ``catalog.yaml`` (or .json) and build a catalog."""
-        return cls(load_config(path))
 
     @property
     def config(self) -> CatalogConfig:
@@ -74,7 +119,7 @@ class Catalog:
 
         backend = provider.gateway.backends[model.backend]
         # provider defaults first, then model settings win on conflict.
-        settings = {**provider.settings, **model.settings}
+        settings = _merge_settings(provider.settings, model.settings)
 
         return ResolvedModel(
             provider_id=provider.id,
@@ -84,6 +129,7 @@ class Catalog:
             api=model.api,
             base_url=provider.gateway.base_url,
             api_key_env=provider.gateway.api_key_env,
+            api_key_literal=provider.gateway.api_key,
             path_template=backend.path_template,
             action_map=dict(backend.action_map),
             settings=settings,

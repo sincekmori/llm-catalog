@@ -1,13 +1,17 @@
 # llm-catalog-pydantic-ai
 
 [Pydantic AI](https://ai.pydantic.dev) adapter for [llm-catalog](https://github.com/sincekmori/llm-catalog).
-It turns a role in your `catalog.yaml` into a native Pydantic AI `Model`, routed through your gateway via the core `GatewayTransport`.
+It turns a role in your catalog config (`llm-catalog.json`, shared verbatim with `ai-sdk-catalog`) into a native Pydantic AI `Model`, routed through your gateway via the core `GatewayTransport`.
 
 ```python
+import json
+from pathlib import Path
+
 from pydantic_ai import Agent
 from llm_catalog.pydantic_ai import PydanticAICatalog
 
-cat = PydanticAICatalog.from_file("catalog.yaml")
+config = json.loads(Path("llm-catalog.json").read_text(encoding="utf-8"))
+cat = PydanticAICatalog(config)  # validates the config itself
 agent = Agent(cat.model_for_role("fast"))
 ```
 

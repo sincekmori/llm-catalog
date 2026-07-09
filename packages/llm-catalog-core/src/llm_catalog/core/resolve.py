@@ -4,11 +4,13 @@
 
 A :class:`ResolvedModel` is a flat, adapter-agnostic snapshot of everything
 needed to call one model through its gateway: the addressing (backend, slug,
-api), the gateway endpoint (``base_url`` + path template), the *name* of the env
-var holding the key, the merged call settings, and the capability hints.
+api), the gateway endpoint (``base_url`` + path template), the key source (a
+literal for local endpoints, otherwise the *name* of the env var), the merged
+call settings, and the capability hints.
 
-It deliberately holds no Pydantic AI / LiteLLM types and no secret values — the
-key is read from the environment at call time by whichever adapter uses it.
+It deliberately holds no Pydantic AI / LiteLLM types and no production secrets —
+when no literal key is configured, the key is read from the environment at call
+time by whichever adapter uses it.
 """
 
 import os
@@ -32,16 +34,21 @@ class ResolvedModel:
     base_url: str
     api_key_env: str
     path_template: str
+    api_key_literal: str | None = None
     action_map: dict[str, str] = field(default_factory=dict)
     settings: dict[str, Any] = field(default_factory=dict)
     capabilities: ModelCapabilities = field(default_factory=ModelCapabilities)
 
     def api_key(self) -> str:
-        """Read the key value from the environment, lazily and per call.
+        """Return the gateway key, lazily and per call.
 
-        Raises :class:`KeyError` (via ``os.environ``) when the variable is unset,
+        The config's ``apiKey`` literal wins when set; otherwise the value is
+        read from the ``api_key_env`` environment variable. Raises
+        :class:`KeyError` (via ``os.environ``) when the variable is unset,
         which surfaces a clear, actionable message naming the missing var.
         """
+        if self.api_key_literal is not None:
+            return self.api_key_literal
         try:
             return os.environ[self.api_key_env]
         except KeyError as exc:

@@ -6,15 +6,15 @@
 for a given role/key, constructs the right Pydantic AI ``Model`` + ``Provider``
 with an ``httpx.AsyncClient`` whose transport is the core
 :class:`~llm_catalog.core.GatewayTransport`. Nothing gateway-specific is
-hardcoded — every quirk comes from ``catalog.yaml``.
+hardcoded — every quirk comes from the catalog config.
 """
 
-from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, cast
 
 import httpx
 
-from llm_catalog.core import Catalog, GatewayTransport, ResolvedModel
+from llm_catalog.core import Catalog, CatalogConfig, GatewayTransport, ResolvedModel
 from llm_catalog.core.errors import LLMCatalogError
 from pydantic_ai import (
     CodeExecutionTool,
@@ -76,15 +76,18 @@ def _to_model_settings(settings: dict[str, Any]) -> ModelSettings | None:
 
 
 class PydanticAICatalog:
-    """A thin Pydantic AI layer over the core :class:`Catalog`."""
+    """A thin Pydantic AI layer over the core :class:`Catalog`.
 
-    def __init__(self, catalog: Catalog) -> None:
-        self._catalog = catalog
+    Accepts a ready :class:`Catalog`, or anything :class:`Catalog` itself
+    accepts — the mapping you parsed from your config JSON, or a validated
+    :class:`CatalogConfig`:
 
-    @classmethod
-    def from_file(cls, path: str | Path) -> "PydanticAICatalog":
-        """Load ``catalog.yaml`` and wrap it."""
-        return cls(Catalog.from_file(path))
+        config = json.loads(Path("llm-catalog.json").read_text("utf-8"))
+        cat = PydanticAICatalog(config)
+    """
+
+    def __init__(self, catalog: Catalog | CatalogConfig | Mapping[str, Any]) -> None:
+        self._catalog = catalog if isinstance(catalog, Catalog) else Catalog(catalog)
 
     @property
     def catalog(self) -> Catalog:
@@ -136,8 +139,13 @@ class PydanticAICatalog:
             return self._openai(rm, settings)
         if rm.backend == "google":
             return self._google(rm, settings)
-        # Unreachable: backend is validated to one of three by core.
-        raise LLMCatalogError(f'Unsupported backend "{rm.backend}".')
+        # The config schema accepts every ai-sdk-catalog backend so a shared
+        # file validates as-is; this adapter can only drive these three.
+        raise LLMCatalogError(
+            f'Backend "{rm.backend}" (model "{rm.provider_id}:{rm.model_id}") is '
+            "not supported by the Pydantic AI adapter. Supported backends: "
+            '"anthropic", "openai", "google".'
+        )
 
     def _client(self, rm: ResolvedModel) -> httpx.AsyncClient:
         transport = GatewayTransport(
@@ -159,6 +167,12 @@ class PydanticAICatalog:
         return AnthropicModel(rm.model_id, provider=provider, settings=settings)
 
     def _openai(self, rm: ResolvedModel, settings: ModelSettings | None) -> Model:
+        if rm.api == "completion":
+            raise LLMCatalogError(
+                f'Model "{rm.provider_id}:{rm.model_id}" sets api="completion"; '
+                "the legacy Completions API is not supported by the Pydantic AI "
+                "adapter."
+            )
         provider = OpenAIProvider(
             base_url=rm.base_url, api_key=rm.api_key(), http_client=self._client(rm)
         )

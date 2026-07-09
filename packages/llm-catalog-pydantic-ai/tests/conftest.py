@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from llm_catalog.core import Catalog, parse_config
+from llm_catalog.core import Catalog
 from llm_catalog.pydantic_ai import PydanticAICatalog
 
 BASE = "https://gateway.example.invalid/base"
@@ -75,4 +75,4 @@ def config_dict() -> dict[str, Any]:
 
 @pytest.fixture
 def pac(config_dict: dict[str, Any]) -> PydanticAICatalog:
-    return PydanticAICatalog(Catalog(parse_config(config_dict)))
+    return PydanticAICatalog(Catalog(config_dict))

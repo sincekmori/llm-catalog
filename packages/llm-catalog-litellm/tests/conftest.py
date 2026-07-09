@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from llm_catalog.core import Catalog, parse_config
+from llm_catalog.core import Catalog
 
 BASE = "https://gateway.example.invalid/base"
 
@@ -57,7 +57,7 @@ def registered(config_dict: dict[str, Any]):
     """
     import llm_catalog.litellm as mod
 
-    mod.handler.set_catalog(Catalog(parse_config(config_dict)))
+    mod.handler.set_catalog(Catalog(config_dict))
     mod._registered.clear()
     mod.register()
     return mod
