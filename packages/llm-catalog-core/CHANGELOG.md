@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.2.0...llm-catalog-core-v0.3.0) (2026-07-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* YAML support is dropped along with the pyyaml dependency; parse YAML yourself and pass the mapping to Catalog. load_config and parse_config are removed — Catalog(config) accepts the parsed mapping (or a CatalogConfig) and validates it. Catalog.from_file and PydanticAICatalog.from_file are removed; read the file yourself with json.loads. The LiteLLM handler's default config path changes from catalog.yaml to llm-catalog.json (JSON only). The api-on-non-openai config error is gone (adapters reject unsupported surfaces at use time), and gateway apiKeyEnvVarName is now optional.
+
+### Features
+
+* adopt the ai-sdk-catalog 0.5.0 config contract ([f8762fb](https://github.com/sincekmori/llm-catalog/commit/f8762fb7431b866f6f2bdd4147fe75610b4a245c))
+
 ## [0.2.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.1.0...llm-catalog-core-v0.2.0) (2026-06-28)
 
 
