@@ -1413,7 +1413,7 @@ wheels = [
 
 [[package]]
 name = "llm-catalog-core"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/llm-catalog-core" }
 dependencies = [
     { name = "httpx" },
@@ -1428,7 +1428,7 @@ requires-dist = [
 
 [[package]]
 name = "llm-catalog-litellm"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/llm-catalog-litellm" }
 dependencies = [
     { name = "httpx" },
@@ -1445,7 +1445,7 @@ requires-dist = [
 
 [[package]]
 name = "llm-catalog-pydantic-ai"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/llm-catalog-pydantic-ai" }
 dependencies = [
     { name = "httpx" },

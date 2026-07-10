@@ -140,3 +140,27 @@ async def test_openai_chat_reaches_gateway_url(pac: PydanticAICatalog) -> None:
         with contextlib.suppress(Exception):
             await agent.run("hi")
     assert route.called
+
+
+async def test_rewrite_hooks_reach_the_wire(config_dict: dict) -> None:
+    # header_rewrite / body_rewrite passed to the catalog end up applied to the
+    # outgoing gateway request.
+    def add_header(headers: httpx.Headers) -> None:
+        headers["x-gateway-extra"] = "on"
+
+    hooked = PydanticAICatalog(
+        Catalog(config_dict),
+        header_rewrite=add_header,
+        body_rewrite=lambda _request: b'{"replaced": true}',
+    )
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post(f"{BASE}/anthropic/light-anthropic").mock(
+            return_value=httpx.Response(200, json=_ANTHROPIC_RESP)
+        )
+        agent = Agent(hooked.model_for_role("reasoning"))
+        with contextlib.suppress(Exception):
+            await agent.run("hi")
+    assert route.called
+    request = route.calls[0].request
+    assert request.headers["x-gateway-extra"] == "on"
+    assert request.content == b'{"replaced": true}'

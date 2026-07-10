@@ -14,7 +14,14 @@ from typing import Any, cast
 
 import httpx
 
-from llm_catalog.core import Catalog, CatalogConfig, GatewayTransport, ResolvedModel
+from llm_catalog.core import (
+    BodyRewrite,
+    Catalog,
+    CatalogConfig,
+    GatewayTransport,
+    HeaderRewrite,
+    ResolvedModel,
+)
 from llm_catalog.core.errors import LLMCatalogError
 from pydantic_ai import (
     CodeExecutionTool,
@@ -84,10 +91,24 @@ class PydanticAICatalog:
 
         config = json.loads(Path("llm-catalog.json").read_text("utf-8"))
         cat = PydanticAICatalog(config)
+
+    ``header_rewrite`` / ``body_rewrite`` are passed through to every
+    :class:`~llm_catalog.core.GatewayTransport` this catalog builds — the
+    escape hatch for gateways that need a header tweaked or part of a vendor
+    payload adjusted. Both hooks run after the URL rewrite, so they can target
+    a specific gateway path via ``request.url``.
     """
 
-    def __init__(self, catalog: Catalog | CatalogConfig | Mapping[str, Any]) -> None:
+    def __init__(
+        self,
+        catalog: Catalog | CatalogConfig | Mapping[str, Any],
+        *,
+        header_rewrite: HeaderRewrite | None = None,
+        body_rewrite: BodyRewrite | None = None,
+    ) -> None:
         self._catalog = catalog if isinstance(catalog, Catalog) else Catalog(catalog)
+        self._header_rewrite = header_rewrite
+        self._body_rewrite = body_rewrite
 
     @property
     def catalog(self) -> Catalog:
@@ -155,6 +176,8 @@ class PydanticAICatalog:
             backend=rm.backend,
             action_map=rm.action_map,
             slug=rm.slug,
+            header_rewrite=self._header_rewrite,
+            body_rewrite=self._body_rewrite,
         )
         return httpx.AsyncClient(transport=transport)
 

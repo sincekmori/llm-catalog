@@ -32,9 +32,17 @@ from collections.abc import Callable
 
 import httpx
 
-__all__ = ["GatewayTransport", "GatewayTransportSync", "HeaderRewrite"]
+__all__ = ["BodyRewrite", "GatewayTransport", "GatewayTransportSync", "HeaderRewrite"]
 
 HeaderRewrite = Callable[[httpx.Headers], None]
+
+# Receives the request *after* the URL/header rewrites (so the gateway URL is
+# inspectable) and returns a replacement body, or ``None`` to leave it as-is.
+# The escape hatch for gateways that reject part of a vendor SDK's payload —
+# e.g. an extra field in replayed tool-call history that a strict endpoint
+# refuses. The transport takes care of rebuilding the request (Content-Length
+# included); the hook only transforms bytes.
+BodyRewrite = Callable[[httpx.Request], "bytes | None"]
 
 # Matches the model id and operation in a google-genai URL path, e.g.
 # "/v1beta/models/gemini-2.5-pro:streamGenerateContent".
@@ -103,6 +111,26 @@ def _build_url(
     return url.copy_merge_params(request.url.params)
 
 
+def _apply_body_rewrite(request: httpx.Request, rewrite: BodyRewrite) -> httpx.Request:
+    """Run the body hook and rebuild the request when it returns a new body.
+
+    Rebuilding (rather than mutating) keeps ``Content-Length`` correct: the
+    stale header is dropped and httpx recomputes it for the new content.
+    Streaming uploads (body not materialised) are left untouched.
+    """
+    try:
+        _ = request.content
+    except httpx.RequestNotRead:  # pragma: no cover - unusual for JSON APIs
+        return request
+    new_body = rewrite(request)
+    if new_body is None:
+        return request
+    headers = httpx.Headers(
+        [(k, v) for k, v in request.headers.raw if k.lower() != b"content-length"]
+    )
+    return httpx.Request(request.method, request.url, headers=headers, content=new_body)
+
+
 class GatewayTransport(httpx.AsyncBaseTransport):
     """Async transport that rewrites vendor paths to the gateway's layout."""
 
@@ -115,6 +143,7 @@ class GatewayTransport(httpx.AsyncBaseTransport):
         action_map: dict[str, str] | None = None,
         slug: str | None = None,
         header_rewrite: HeaderRewrite | None = None,
+        body_rewrite: BodyRewrite | None = None,
     ) -> None:
         self.inner = inner
         self.base_url = base_url
@@ -123,6 +152,7 @@ class GatewayTransport(httpx.AsyncBaseTransport):
         self.action_map = action_map or {}
         self.slug = slug
         self.header_rewrite = header_rewrite
+        self.body_rewrite = body_rewrite
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         """Rewrite the request path to the gateway layout, then delegate."""
@@ -138,6 +168,8 @@ class GatewayTransport(httpx.AsyncBaseTransport):
             request.url = new_url
         if self.header_rewrite is not None:
             self.header_rewrite(request.headers)
+        if self.body_rewrite is not None:
+            request = _apply_body_rewrite(request, self.body_rewrite)
         return await self.inner.handle_async_request(request)
 
     async def aclose(self) -> None:
@@ -157,6 +189,7 @@ class GatewayTransportSync(httpx.BaseTransport):
         action_map: dict[str, str] | None = None,
         slug: str | None = None,
         header_rewrite: HeaderRewrite | None = None,
+        body_rewrite: BodyRewrite | None = None,
     ) -> None:
         self.inner = inner
         self.base_url = base_url
@@ -165,6 +198,7 @@ class GatewayTransportSync(httpx.BaseTransport):
         self.action_map = action_map or {}
         self.slug = slug
         self.header_rewrite = header_rewrite
+        self.body_rewrite = body_rewrite
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         """Rewrite the request path to the gateway layout, then delegate."""
@@ -180,6 +214,8 @@ class GatewayTransportSync(httpx.BaseTransport):
             request.url = new_url
         if self.header_rewrite is not None:
             self.header_rewrite(request.headers)
+        if self.body_rewrite is not None:
+            request = _apply_body_rewrite(request, self.body_rewrite)
         return self.inner.handle_request(request)
 
     def close(self) -> None:

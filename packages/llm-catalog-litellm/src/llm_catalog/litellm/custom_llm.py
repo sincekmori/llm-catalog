@@ -42,9 +42,11 @@ from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from litellm.types.llms.openai import ChatCompletionUsageBlock
 from litellm.types.utils import GenericStreamingChunk, ModelResponse
 from llm_catalog.core import (
+    BodyRewrite,
     Catalog,
     GatewayTransport,
     GatewayTransportSync,
+    HeaderRewrite,
     ResolvedModel,
 )
 from llm_catalog.core.errors import ConfigError, ResolutionError
@@ -66,13 +68,28 @@ _BACKEND_TO_LITELLM: dict[str, str] = {
 
 
 class ChatCatalogLLM(CustomLLM):
-    """A catalog-driven LiteLLM custom provider (in-process and proxy)."""
+    """A catalog-driven LiteLLM custom provider (in-process and proxy).
+
+    ``header_rewrite`` / ``body_rewrite`` are passed through to every
+    :class:`~llm_catalog.core.GatewayTransport` this handler builds — the
+    escape hatch for gateways that need a header tweaked or part of a vendor
+    payload adjusted. Both hooks run after the URL rewrite. The module-level
+    ``handler`` uses no hooks; instantiate your own ``ChatCatalogLLM`` (and
+    reference it from ``custom_provider_map``) to use them.
+    """
 
     def __init__(
-        self, config_path: str | Path | None = None, catalog: Catalog | None = None
+        self,
+        config_path: str | Path | None = None,
+        catalog: Catalog | None = None,
+        *,
+        header_rewrite: HeaderRewrite | None = None,
+        body_rewrite: BodyRewrite | None = None,
     ) -> None:
         self._config_path = config_path
         self._catalog = catalog
+        self._header_rewrite = header_rewrite
+        self._body_rewrite = body_rewrite
 
     # --- config / resolution ------------------------------------------------
 
@@ -154,6 +171,8 @@ class ChatCatalogLLM(CustomLLM):
                 backend=rm.backend,
                 action_map=rm.action_map,
                 slug=rm.slug,
+                header_rewrite=self._header_rewrite,
+                body_rewrite=self._body_rewrite,
             )
         )
         if rm.backend == "openai":
@@ -173,6 +192,8 @@ class ChatCatalogLLM(CustomLLM):
                 backend=rm.backend,
                 action_map=rm.action_map,
                 slug=rm.slug,
+                header_rewrite=self._header_rewrite,
+                body_rewrite=self._body_rewrite,
             )
         )
         if rm.backend == "openai":

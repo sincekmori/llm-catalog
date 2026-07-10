@@ -37,10 +37,16 @@ from .errors import (
     ResolutionError,
 )
 from .resolve import ResolvedModel
-from .transport import GatewayTransport, GatewayTransportSync, HeaderRewrite
+from .transport import (
+    BodyRewrite,
+    GatewayTransport,
+    GatewayTransportSync,
+    HeaderRewrite,
+)
 
 __all__ = [
     "Backend",
+    "BodyRewrite",
     "Catalog",
     "CatalogConfig",
     "ConfigError",

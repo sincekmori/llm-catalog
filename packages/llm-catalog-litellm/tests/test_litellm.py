@@ -133,6 +133,35 @@ def test_self_resolves_without_litellm_params(config_dict) -> None:
     assert rm.api_key_env == "EXAMPLEGW_API_KEY"
 
 
+def test_rewrite_hooks_reach_the_wire(config_dict) -> None:
+    # header_rewrite / body_rewrite on a handler end up applied to the outgoing
+    # gateway request (the module-level `handler` stays hook-free).
+    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+
+    from llm_catalog.litellm import ChatCatalogLLM
+
+    def add_header(headers: httpx.Headers) -> None:
+        headers["x-gateway-extra"] = "on"
+
+    h = ChatCatalogLLM(
+        catalog=Catalog(config_dict),
+        header_rewrite=add_header,
+        body_rewrite=lambda _request: b'{"replaced": true}',
+    )
+    rm = h._resolve("reasoning", {"custom_llm_provider": "examplegw"})
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post(f"{BASE}/anthropic/light-anthropic").mock(
+            return_value=httpx.Response(200, json=_ANTHROPIC_RESP)
+        )
+        http = h._sync_client(rm)
+        assert isinstance(http, HTTPHandler)  # anthropic backend -> HTTPHandler
+        http.client.post(f"{BASE}/v1/messages", json={"model": "light-anthropic"})
+    assert route.called
+    request = route.calls[0].request
+    assert request.headers["x-gateway-extra"] == "on"
+    assert request.content == b'{"replaced": true}'
+
+
 def test_get_catalog_reads_config_json(tmp_path, config_dict) -> None:
     import json
 
