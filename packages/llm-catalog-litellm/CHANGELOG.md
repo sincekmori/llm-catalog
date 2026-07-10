@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-litellm-v0.3.0...llm-catalog-litellm-v0.4.0) (2026-07-10)
+
+
+### Features
+
+* add a body_rewrite hook to GatewayTransport and both adapters ([0682c8b](https://github.com/sincekmori/llm-catalog/commit/0682c8b9ded2212f1a1051db9904361a02ad92ae))
+
 ## [0.3.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-litellm-v0.2.0...llm-catalog-litellm-v0.3.0) (2026-07-10)
 
 
