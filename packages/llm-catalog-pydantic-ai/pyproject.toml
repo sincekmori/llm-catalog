@@ -1,6 +1,6 @@
 [project]
 name = "llm-catalog-pydantic-ai"
-version = "0.2.0"
+version = "0.3.0"
 description = "Pydantic AI adapter for llm-catalog: build native Pydantic AI models from a catalog config, routed through your gateway."
 readme = "README.md"
 requires-python = ">=3.10"
