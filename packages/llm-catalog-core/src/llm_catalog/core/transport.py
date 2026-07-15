@@ -1,15 +1,23 @@
 # Copyright 2026 Shinsuke Mori
 # SPDX-License-Identifier: Apache-2.0
-"""Path-rewriting httpx transport that adapts vendor SDKs to a gateway layout.
+"""httpx transport that adapts vendor SDKs to a gateway layout.
 
-Each vendor SDK (anthropic / openai / google-genai) builds its own fixed request
-path (``/v1/messages``, ``/chat/completions``, ``/v1beta/models/{m}:{action}``).
-A gateway instead expects a ``path_template`` such as ``anthropic/{slug}``.
+Each vendor SDK (anthropic / openai / google-genai / ...) builds its own fixed
+request path (``/v1/messages``, ``/chat/completions``,
+``/v1beta/models/{m}:{action}``). A gateway instead expects a ``path_template``
+such as ``anthropic/{slug}``.
 
 :class:`GatewayTransport` sits in the vendor SDK's ``httpx`` client and rewrites
 each outgoing request's path to the gateway's, leaving everything else (method,
-headers, body, query string) intact. It lives in *core* so both adapters reuse
-the exact same rewriting.
+body, query string) intact. It also injects the config-declared transport
+extras — extra request ``headers`` (same-name wins over the SDK's own) and
+``query`` parameters appended to the final URL — mirroring ai-sdk-catalog's
+``headers``/``query``. It lives in *core* so both adapters reuse the exact same
+behaviour.
+
+Path rewriting is optional: with no ``path_template`` the transport only
+applies headers/query and the rewrite hooks — that is what the adapters use for
+**direct** providers, whose vendor SDK already builds the right URL.
 
 Slug source
 -----------
@@ -18,8 +26,9 @@ The ``{slug}`` placeholder is filled from, in order:
 * an explicit ``slug`` passed to the transport (what the adapters do — they know
   the resolved model's slug, which may differ from the model id carried in the
   request), or
-* the model identifier extracted from the request itself (body ``model`` for
-  fixed-path backends, the URL for google) when no explicit slug is given.
+* the model identifier extracted from the request itself (the URL for
+  ``google``, whose model travels in the path; the body ``model`` field for
+  every other vendor) when no explicit slug is given.
 
 Extraction is what keeps the transport generic and is exercised directly by the
 tests; the explicit-slug path is what lets a configured ``slug`` differ from the
@@ -48,39 +57,35 @@ BodyRewrite = Callable[[httpx.Request], "bytes | None"]
 # "/v1beta/models/gemini-2.5-pro:streamGenerateContent".
 _GOOGLE_PATH = re.compile(r"/models/(?P<model>[^:/]+):(?P<action>[A-Za-z]+)")
 
-# Backends whose model lives in the JSON request body (not the URL).
-_BODY_BACKENDS = frozenset({"anthropic", "openai"})
-
 
 def _extract_slug_action(
-    request: httpx.Request, backend: str
+    request: httpx.Request, vendor: str
 ) -> tuple[str | None, str | None]:
-    """Pull ``(slug, action)`` out of a request for the given backend.
+    """Pull ``(slug, action)`` out of a request for the given vendor.
 
-    Returns ``(None, None)`` when nothing can be extracted (the caller then falls
-    back to the configured slug, or leaves the request unrewritten).
+    For ``google`` the model and operation live in the URL; for every other
+    vendor the model travels in the JSON request body. Returns ``(None, None)``
+    when nothing can be extracted (the caller then falls back to the configured
+    slug, or leaves the request unrewritten).
     """
-    if backend == "google":
+    if vendor == "google":
         match = _GOOGLE_PATH.search(request.url.path)
         if match is None:
             return None, None
         return match.group("model"), match.group("action")
 
-    if backend in _BODY_BACKENDS:
-        try:
-            raw = request.content
-        except httpx.RequestNotRead:  # streaming body not materialised — uncommon here
-            return None, None
-        if not raw:
-            return None, None
-        try:
-            body = json.loads(raw)
-        except ValueError:  # JSONDecodeError and UnicodeDecodeError both subclass it
-            return None, None
-        model = body.get("model") if isinstance(body, dict) else None
-        return (model if isinstance(model, str) and model else None), None
-
-    return None, None
+    try:
+        raw = request.content
+    except httpx.RequestNotRead:  # streaming body not materialised — uncommon here
+        return None, None
+    if not raw:
+        return None, None
+    try:
+        body = json.loads(raw)
+    except ValueError:  # JSONDecodeError and UnicodeDecodeError both subclass it
+        return None, None
+    model = body.get("model") if isinstance(body, dict) else None
+    return (model if isinstance(model, str) and model else None), None
 
 
 def _build_url(
@@ -89,11 +94,11 @@ def _build_url(
     base_url: str,
     path_template: str,
     action_map: dict[str, str],
-    backend: str,
+    vendor: str,
     slug: str | None,
 ) -> httpx.URL | None:
     """Compute the rewritten gateway URL, or ``None`` to leave the request as-is."""
-    extracted_slug, action = _extract_slug_action(request, backend)
+    extracted_slug, action = _extract_slug_action(request, vendor)
     final_slug = slug if slug is not None else extracted_slug
     if final_slug is None:
         # Nothing to substitute — don't touch the request.
@@ -131,92 +136,143 @@ def _apply_body_rewrite(request: httpx.Request, rewrite: BodyRewrite) -> httpx.R
     return httpx.Request(request.method, request.url, headers=headers, content=new_body)
 
 
-class GatewayTransport(httpx.AsyncBaseTransport):
-    """Async transport that rewrites vendor paths to the gateway's layout."""
+class _RewriteMixin:
+    """The shared request rewrite, identical for the async and sync transports."""
 
-    def __init__(
+    base_url: "str | None"
+    path_template: "str | None"
+    vendor: "str | None"
+    action_map: dict[str, str]
+    slug: "str | None"
+    headers: dict[str, str]
+    query: dict[str, str]
+    header_rewrite: "HeaderRewrite | None"
+    body_rewrite: "BodyRewrite | None"
+
+    def _init(
         self,
-        inner: httpx.AsyncBaseTransport,
-        base_url: str,
-        path_template: str,
-        backend: str,
-        action_map: dict[str, str] | None = None,
-        slug: str | None = None,
-        header_rewrite: HeaderRewrite | None = None,
-        body_rewrite: BodyRewrite | None = None,
+        base_url: "str | None",
+        path_template: "str | None",
+        vendor: "str | None",
+        action_map: "dict[str, str] | None",
+        slug: "str | None",
+        headers: "dict[str, str] | None",
+        query: "dict[str, str] | None",
+        header_rewrite: "HeaderRewrite | None",
+        body_rewrite: "BodyRewrite | None",
     ) -> None:
-        self.inner = inner
         self.base_url = base_url
         self.path_template = path_template
-        self.backend = backend
+        self.vendor = vendor
         self.action_map = action_map or {}
         self.slug = slug
+        self.headers = headers or {}
+        self.query = query or {}
         self.header_rewrite = header_rewrite
         self.body_rewrite = body_rewrite
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        """Rewrite the request path to the gateway layout, then delegate."""
-        new_url = _build_url(
-            request,
-            base_url=self.base_url,
-            path_template=self.path_template,
-            action_map=self.action_map,
-            backend=self.backend,
-            slug=self.slug,
-        )
-        if new_url is not None:
-            request.url = new_url
+    def _rewrite(self, request: httpx.Request) -> httpx.Request:
+        # 1. Path rewrite to the gateway layout (gateway providers only).
+        if (
+            self.base_url is not None
+            and self.path_template is not None
+            and self.vendor is not None
+        ):
+            new_url = _build_url(
+                request,
+                base_url=self.base_url,
+                path_template=self.path_template,
+                action_map=self.action_map,
+                vendor=self.vendor,
+                slug=self.slug,
+            )
+            if new_url is not None:
+                request.url = new_url
+        # 2. Config-declared query params land on the final URL (a parameter
+        #    already present is overridden, so the config value wins).
+        if self.query:
+            request.url = request.url.copy_merge_params(self.query)
+        # 3. Config-declared headers win over the vendor SDK's own.
+        for name, value in self.headers.items():
+            request.headers[name] = value
+        # 4. Code-level escape hatches run last, seeing the final request.
         if self.header_rewrite is not None:
             self.header_rewrite(request.headers)
         if self.body_rewrite is not None:
             request = _apply_body_rewrite(request, self.body_rewrite)
-        return await self.inner.handle_async_request(request)
+        return request
+
+
+class GatewayTransport(_RewriteMixin, httpx.AsyncBaseTransport):
+    """Async transport that adapts vendor requests to the configured layout."""
+
+    def __init__(
+        self,
+        inner: httpx.AsyncBaseTransport,
+        base_url: str | None = None,
+        path_template: str | None = None,
+        vendor: str | None = None,
+        action_map: dict[str, str] | None = None,
+        slug: str | None = None,
+        headers: dict[str, str] | None = None,
+        query: dict[str, str] | None = None,
+        header_rewrite: HeaderRewrite | None = None,
+        body_rewrite: BodyRewrite | None = None,
+    ) -> None:
+        self.inner = inner
+        self._init(
+            base_url,
+            path_template,
+            vendor,
+            action_map,
+            slug,
+            headers,
+            query,
+            header_rewrite,
+            body_rewrite,
+        )
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        """Apply the rewrites, then delegate to the inner transport."""
+        return await self.inner.handle_async_request(self._rewrite(request))
 
     async def aclose(self) -> None:
         """Close the wrapped inner transport."""
         await self.inner.aclose()
 
 
-class GatewayTransportSync(httpx.BaseTransport):
+class GatewayTransportSync(_RewriteMixin, httpx.BaseTransport):
     """Synchronous counterpart of :class:`GatewayTransport`."""
 
     def __init__(
         self,
         inner: httpx.BaseTransport,
-        base_url: str,
-        path_template: str,
-        backend: str,
+        base_url: str | None = None,
+        path_template: str | None = None,
+        vendor: str | None = None,
         action_map: dict[str, str] | None = None,
         slug: str | None = None,
+        headers: dict[str, str] | None = None,
+        query: dict[str, str] | None = None,
         header_rewrite: HeaderRewrite | None = None,
         body_rewrite: BodyRewrite | None = None,
     ) -> None:
         self.inner = inner
-        self.base_url = base_url
-        self.path_template = path_template
-        self.backend = backend
-        self.action_map = action_map or {}
-        self.slug = slug
-        self.header_rewrite = header_rewrite
-        self.body_rewrite = body_rewrite
+        self._init(
+            base_url,
+            path_template,
+            vendor,
+            action_map,
+            slug,
+            headers,
+            query,
+            header_rewrite,
+            body_rewrite,
+        )
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
-        """Rewrite the request path to the gateway layout, then delegate."""
-        new_url = _build_url(
-            request,
-            base_url=self.base_url,
-            path_template=self.path_template,
-            action_map=self.action_map,
-            backend=self.backend,
-            slug=self.slug,
-        )
-        if new_url is not None:
-            request.url = new_url
-        if self.header_rewrite is not None:
-            self.header_rewrite(request.headers)
-        if self.body_rewrite is not None:
-            request = _apply_body_rewrite(request, self.body_rewrite)
-        return self.inner.handle_request(request)
+        """Apply the rewrites, then delegate to the inner transport."""
+        return self.inner.handle_request(self._rewrite(request))
 
     def close(self) -> None:
         """Close the wrapped inner transport."""

@@ -1,12 +1,15 @@
 # Copyright 2026 Shinsuke Mori
 # SPDX-License-Identifier: Apache-2.0
-"""Build native Pydantic AI models from a catalog, routed through the gateway.
+"""Build native Pydantic AI models from a catalog.
 
-:class:`PydanticAICatalog` wraps the core :class:`~llm_catalog.core.Catalog` and,
-for a given role/key, constructs the right Pydantic AI ``Model`` + ``Provider``
-with an ``httpx.AsyncClient`` whose transport is the core
-:class:`~llm_catalog.core.GatewayTransport`. Nothing gateway-specific is
-hardcoded — every quirk comes from the catalog config.
+:class:`PydanticAICatalog` wraps the core :class:`~llm_catalog.core.Catalog`
+and, for a given role/key, constructs the right Pydantic AI ``Model`` +
+``Provider``. A **gateway** model gets an ``httpx.AsyncClient`` whose transport
+is the core :class:`~llm_catalog.core.GatewayTransport` (path rewriting plus
+the declarative ``headers``/``query``); a **direct** model calls the vendor's
+own endpoint (or the vendor block's ``baseURL``), with the same transport
+applying only the declarative extras. Nothing gateway-specific is hardcoded —
+every quirk comes from the catalog config.
 """
 
 from collections.abc import Mapping
@@ -112,7 +115,7 @@ class PydanticAICatalog:
 
     @property
     def catalog(self) -> Catalog:
-        """The underlying gateway-agnostic catalog (for capability queries)."""
+        """The underlying runtime-agnostic catalog (for capability queries)."""
         return self._catalog
 
     def model_for_role(self, role: str) -> Model:
@@ -154,39 +157,62 @@ class PydanticAICatalog:
 
     def _build(self, rm: ResolvedModel) -> Model:
         settings = _to_model_settings(rm.settings)
-        if rm.backend == "anthropic":
+        if rm.vendor == "anthropic":
             return self._anthropic(rm, settings)
-        if rm.backend == "openai":
+        if rm.vendor == "openai":
             return self._openai(rm, settings)
-        if rm.backend == "google":
+        if rm.vendor == "openai-compatible":
+            return self._openai_compatible(rm, settings)
+        if rm.vendor == "google":
             return self._google(rm, settings)
-        # The config schema accepts every ai-sdk-catalog backend so a shared
-        # file validates as-is; this adapter can only drive these three.
+        # The config schema accepts every ai-sdk-catalog vendor so a shared
+        # file validates as-is; this adapter can only drive these four.
         raise LLMCatalogError(
-            f'Backend "{rm.backend}" (model "{rm.provider_id}:{rm.model_id}") is '
-            "not supported by the Pydantic AI adapter. Supported backends: "
-            '"anthropic", "openai", "google".'
+            f'Vendor "{rm.vendor}" (model "{rm.provider_id}:{rm.model_id}") is '
+            "not supported by the Pydantic AI adapter. Supported vendors: "
+            '"anthropic", "openai", "openai-compatible", "google".'
         )
 
     def _client(self, rm: ResolvedModel) -> httpx.AsyncClient:
+        """Build the httpx client; one transport serves both provider kinds.
+
+        A gateway model gets the path rewrite; a direct model only the
+        declarative headers/query (and the code-level hooks).
+        """
         transport = GatewayTransport(
             httpx.AsyncHTTPTransport(),
             base_url=rm.base_url,
-            path_template=rm.path_template,
-            backend=rm.backend,
+            path_template=rm.path_template,  # None for direct -> no rewrite
+            vendor=rm.vendor,
             action_map=rm.action_map,
             slug=rm.slug,
+            headers=rm.resolved_headers(),
+            query=rm.query,
             header_rewrite=self._header_rewrite,
             body_rewrite=self._body_rewrite,
         )
         return httpx.AsyncClient(transport=transport)
 
+    def _provider_kwargs(self, rm: ResolvedModel) -> dict[str, Any]:
+        """Build the common Pydantic AI provider kwargs.
+
+        ``base_url``/``api_key`` are omitted when unset, so a direct provider
+        falls back to the vendor SDK's own defaults (its endpoint, its key env
+        var — e.g. ``OPENAI_API_KEY``). For a gateway model both are always
+        present (the key defaults to ``AI_GATEWAY_API_KEY``).
+        """
+        kwargs: dict[str, Any] = {"http_client": self._client(rm)}
+        if rm.base_url is not None:
+            kwargs["base_url"] = rm.base_url
+        api_key = rm.api_key()
+        if api_key is not None:
+            kwargs["api_key"] = api_key
+        return kwargs
+
     def _anthropic(
         self, rm: ResolvedModel, settings: ModelSettings | None
     ) -> AnthropicModel:
-        provider = AnthropicProvider(
-            base_url=rm.base_url, api_key=rm.api_key(), http_client=self._client(rm)
-        )
+        provider = AnthropicProvider(**self._provider_kwargs(rm))
         return AnthropicModel(rm.model_id, provider=provider, settings=settings)
 
     def _openai(self, rm: ResolvedModel, settings: ModelSettings | None) -> Model:
@@ -196,13 +222,24 @@ class PydanticAICatalog:
                 "the legacy Completions API is not supported by the Pydantic AI "
                 "adapter."
             )
-        provider = OpenAIProvider(
-            base_url=rm.base_url, api_key=rm.api_key(), http_client=self._client(rm)
-        )
-        if rm.api == "responses":
-            return OpenAIResponsesModel(
-                rm.model_id, provider=provider, settings=settings
+        provider = OpenAIProvider(**self._provider_kwargs(rm))
+        if rm.api == "chat":
+            return OpenAIChatModel(rm.model_id, provider=provider, settings=settings)
+        # The OpenAI vendor's default surface is the Responses API, matching
+        # ai-sdk-catalog; set api="chat" for a gateway that only speaks Chat
+        # Completions.
+        return OpenAIResponsesModel(rm.model_id, provider=provider, settings=settings)
+
+    def _openai_compatible(
+        self, rm: ResolvedModel, settings: ModelSettings | None
+    ) -> Model:
+        if rm.api in {"responses", "completion"}:
+            raise LLMCatalogError(
+                f'Model "{rm.provider_id}:{rm.model_id}" sets api="{rm.api}"; '
+                'an "openai-compatible" vendor only speaks Chat Completions in '
+                "the Pydantic AI adapter."
             )
+        provider = OpenAIProvider(**self._provider_kwargs(rm))
         return OpenAIChatModel(rm.model_id, provider=provider, settings=settings)
 
     def _google(self, rm: ResolvedModel, settings: ModelSettings | None) -> GoogleModel:
@@ -210,7 +247,5 @@ class PydanticAICatalog:
         # custom httpx client/transport. If GatewayTransport turns out not to
         # take effect here, the fallback is to build a genai Client with the
         # transport wired in and pass it via GoogleProvider(client=...).
-        provider = GoogleProvider(
-            base_url=rm.base_url, api_key=rm.api_key(), http_client=self._client(rm)
-        )
+        provider = GoogleProvider(**self._provider_kwargs(rm))
         return GoogleModel(rm.model_id, provider=provider, settings=settings)

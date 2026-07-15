@@ -1,6 +1,7 @@
 # Copyright 2026 Shinsuke Mori
 # SPDX-License-Identifier: Apache-2.0
-"""GatewayTransport path rewriting, slug/action extraction, header/body rewrite.
+"""GatewayTransport: path rewriting, slug/action extraction, declarative
+headers/query injection, and the header/body rewrite hooks.
 
 Tests use ``httpx.MockTransport`` as the inner transport: the GatewayTransport
 rewrites ``request.url`` *before* delegating, so the mock handler observes the
@@ -29,7 +30,7 @@ def _capturer() -> tuple[list[httpx.Request], httpx.MockTransport]:
 async def test_anthropic_slug_from_body() -> None:
     seen, inner = _capturer()
     transport = GatewayTransport(
-        inner, base_url=BASE, path_template="anthropic/{slug}", backend="anthropic"
+        inner, base_url=BASE, path_template="anthropic/{slug}", vendor="anthropic"
     )
     async with httpx.AsyncClient(transport=transport) as client:
         await client.post(
@@ -41,11 +42,23 @@ async def test_anthropic_slug_from_body() -> None:
 async def test_openai_slug_from_body() -> None:
     seen, inner = _capturer()
     transport = GatewayTransport(
-        inner, base_url=BASE, path_template="gpt/{slug}", backend="openai"
+        inner, base_url=BASE, path_template="gpt/{slug}", vendor="openai"
     )
     async with httpx.AsyncClient(transport=transport) as client:
         await client.post(f"{BASE}/chat/completions", json={"model": "light-openai"})
     assert str(seen[0].url) == f"{BASE}/gpt/light-openai"
+
+
+async def test_any_non_google_vendor_reads_body_model() -> None:
+    # Every vendor except google carries the model in the body (matching
+    # ai-sdk-catalog's fixed-path handling), so e.g. mistral rewrites too.
+    seen, inner = _capturer()
+    transport = GatewayTransport(
+        inner, base_url=BASE, path_template="mistral/{slug}", vendor="mistral"
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        await client.post(f"{BASE}/v1/chat/completions", json={"model": "m-large"})
+    assert str(seen[0].url) == f"{BASE}/mistral/m-large"
 
 
 async def test_explicit_slug_overrides_body() -> None:
@@ -55,7 +68,7 @@ async def test_explicit_slug_overrides_body() -> None:
         inner,
         base_url=BASE,
         path_template="gpt/{slug}",
-        backend="openai",
+        vendor="openai",
         slug="oai-light",
     )
     async with httpx.AsyncClient(transport=transport) as client:
@@ -71,7 +84,7 @@ async def test_google_slug_and_action_from_url() -> None:
         inner,
         base_url=BASE,
         path_template="gemini/{slug}:{action}",
-        backend="google",
+        vendor="google",
         action_map={"streamGenerateContent": "customStreamGenerateContent"},
     )
     async with httpx.AsyncClient(transport=transport) as client:
@@ -88,13 +101,74 @@ async def test_google_slug_and_action_from_url() -> None:
 async def test_google_action_passthrough_when_not_mapped() -> None:
     seen, inner = _capturer()
     transport = GatewayTransport(
-        inner, base_url=BASE, path_template="gemini/{slug}:{action}", backend="google"
+        inner, base_url=BASE, path_template="gemini/{slug}:{action}", vendor="google"
     )
     async with httpx.AsyncClient(transport=transport) as client:
         await client.post(
             f"{BASE}/v1beta/models/search-google:generateContent", json={}
         )
     assert seen[0].url.path == "/base/gemini/search-google:generateContent"
+
+
+async def test_declarative_headers_win_over_request_headers() -> None:
+    # Config headers are merged over the vendor SDK's own (same-name wins).
+    seen, inner = _capturer()
+    transport = GatewayTransport(
+        inner,
+        base_url=BASE,
+        path_template="anthropic/{slug}",
+        vendor="anthropic",
+        headers={"x-api-key": "gateway-key", "x-tenant": "acme"},
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        await client.post(
+            f"{BASE}/v1/messages",
+            json={"model": "m"},
+            headers={"x-api-key": "sdk-key"},
+        )
+    assert seen[0].headers["x-api-key"] == "gateway-key"
+    assert seen[0].headers["x-tenant"] == "acme"
+
+
+async def test_declarative_query_lands_on_final_url() -> None:
+    # Query params are appended after the path rewrite; an existing parameter
+    # is overridden so the config value wins.
+    seen, inner = _capturer()
+    transport = GatewayTransport(
+        inner,
+        base_url=BASE,
+        path_template="gemini/{slug}:{action}",
+        vendor="google",
+        query={"api-version": "2026-01-01"},
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        await client.post(
+            f"{BASE}/v1beta/models/g:generateContent?alt=sse&api-version=old",
+            json={},
+        )
+    url = seen[0].url
+    assert url.path == "/base/gemini/g:generateContent"
+    assert url.params.get("alt") == "sse"
+    assert url.params.get("api-version") == "2026-01-01"
+
+
+async def test_no_path_rewrite_for_direct_use() -> None:
+    # With no path_template the transport only injects headers/query — what the
+    # adapters use for direct providers.
+    seen, inner = _capturer()
+    transport = GatewayTransport(
+        inner,
+        headers={"x-tenant": "acme"},
+        query={"api-version": "2026-01-01"},
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        await client.post(
+            "https://api.vendor.example.invalid/v1/messages", json={"model": "m"}
+        )
+    url = seen[0].url
+    assert url.path == "/v1/messages"
+    assert url.params.get("api-version") == "2026-01-01"
+    assert seen[0].headers["x-tenant"] == "acme"
 
 
 async def test_header_rewrite_invoked() -> None:
@@ -107,7 +181,7 @@ async def test_header_rewrite_invoked() -> None:
         inner,
         base_url=BASE,
         path_template="anthropic/{slug}",
-        backend="anthropic",
+        vendor="anthropic",
         header_rewrite=rewrite,
     )
     async with httpx.AsyncClient(transport=transport) as client:
@@ -127,7 +201,7 @@ async def test_body_rewrite_replaces_body_and_content_length() -> None:
         inner,
         base_url=BASE,
         path_template="gemini/{slug}:{action}",
-        backend="google",
+        vendor="google",
         body_rewrite=rewrite,
     )
     async with httpx.AsyncClient(transport=transport) as client:
@@ -153,7 +227,7 @@ async def test_body_rewrite_sees_the_rewritten_url() -> None:
         inner,
         base_url=BASE,
         path_template="gemini/{slug}:{action}",
-        backend="google",
+        vendor="google",
         body_rewrite=rewrite,
     )
     async with httpx.AsyncClient(transport=transport) as client:
@@ -169,7 +243,7 @@ async def test_body_rewrite_none_leaves_request_untouched() -> None:
         inner,
         base_url=BASE,
         path_template="anthropic/{slug}",
-        backend="anthropic",
+        vendor="anthropic",
         body_rewrite=lambda _request: None,
     )
     async with httpx.AsyncClient(transport=transport) as client:
@@ -183,7 +257,7 @@ def test_sync_body_rewrite() -> None:
         inner,
         base_url=BASE,
         path_template="anthropic/{slug}",
-        backend="anthropic",
+        vendor="anthropic",
         body_rewrite=lambda _request: b'{"replaced": true}',
     )
     with httpx.Client(transport=transport) as client:
@@ -196,7 +270,7 @@ async def test_no_rewrite_when_model_absent() -> None:
     # No body model and no explicit slug -> request passes through unchanged.
     seen, inner = _capturer()
     transport = GatewayTransport(
-        inner, base_url=BASE, path_template="anthropic/{slug}", backend="anthropic"
+        inner, base_url=BASE, path_template="anthropic/{slug}", vendor="anthropic"
     )
     async with httpx.AsyncClient(transport=transport) as client:
         await client.post(f"{BASE}/v1/messages", json={"no_model": True})
@@ -212,8 +286,15 @@ def test_sync_transport() -> None:
 
     inner = httpx.MockTransport(handler)
     transport = GatewayTransportSync(
-        inner, base_url=BASE, path_template="anthropic/{slug}", backend="anthropic"
+        inner,
+        base_url=BASE,
+        path_template="anthropic/{slug}",
+        vendor="anthropic",
+        headers={"x-tenant": "acme"},
+        query={"api-version": "2026-01-01"},
     )
     with httpx.Client(transport=transport) as client:
         client.post(f"{BASE}/v1/messages", json={"model": "light-anthropic"})
-    assert str(seen[0].url) == f"{BASE}/anthropic/light-anthropic"
+    assert seen[0].url.path == "/base/anthropic/light-anthropic"
+    assert seen[0].url.params.get("api-version") == "2026-01-01"
+    assert seen[0].headers["x-tenant"] == "acme"

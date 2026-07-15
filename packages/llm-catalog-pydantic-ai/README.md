@@ -1,7 +1,7 @@
 # llm-catalog-pydantic-ai
 
 [Pydantic AI](https://ai.pydantic.dev) adapter for [llm-catalog](https://github.com/sincekmori/llm-catalog).
-It turns a role in your catalog config (`llm-catalog.json`, shared verbatim with `ai-sdk-catalog`) into a native Pydantic AI `Model`, routed through your gateway via the core `GatewayTransport`.
+It turns a role in your catalog config (`llm-catalog.json`, shared verbatim with `ai-sdk-catalog`) into a native Pydantic AI `Model` — a gateway model is routed through your gateway via the core `GatewayTransport`, a direct model calls the vendor's own endpoint (anthropic / openai / openai-compatible / google).
 
 ```python
 import json

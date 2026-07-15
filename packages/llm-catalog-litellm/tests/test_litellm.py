@@ -124,13 +124,51 @@ def test_register_is_idempotent(registered) -> None:
 def test_self_resolves_without_litellm_params(config_dict) -> None:
     # The handler must resolve purely from the catalog (issue #18216 mitigation):
     # given only the model name + provider, it produces a full ResolvedModel.
+    from llm_catalog.core import EnvVarRef
     from llm_catalog.litellm import ChatCatalogLLM
 
     h = ChatCatalogLLM(catalog=Catalog(config_dict))
     rm = h._resolve("fast", {"custom_llm_provider": "examplegw"})
+    assert rm.kind == "gateway"
     assert rm.backend == "openai"
+    assert rm.vendor == "openai"
     assert rm.base_url == BASE
-    assert rm.api_key_env == "EXAMPLEGW_API_KEY"
+    assert rm.api_key_config == EnvVarRef(envVarName="EXAMPLEGW_API_KEY")
+
+
+def test_direct_provider_reaches_vendor_url(registered) -> None:
+    # A direct provider skips the path rewrite and calls the vendor endpoint,
+    # with the key coming from the vendor's own env var (ANTHROPIC_API_KEY).
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("https://api.anthropic.com/v1/messages").mock(
+            return_value=httpx.Response(200, json=_ANTHROPIC_RESP)
+        )
+        resp = litellm.completion(
+            model="claude-direct/chat",  # role defined on the direct provider
+            messages=[{"role": "user", "content": "hi"}],
+        )
+    assert route.called
+    assert resp.choices[0].message.content == "ok-anthropic"
+
+
+def test_register_warns_on_builtin_provider_id_collision(config_dict) -> None:
+    import llm_catalog.litellm as mod
+    from llm_catalog.litellm import ChatCatalogLLM, ProviderIdCollisionWarning
+
+    config_dict["providers"][1]["id"] = "anthropic"  # collides with a built-in
+    config_dict["roles"]["chat"] = "anthropic:claude-sonnet-5"
+    original_handler = mod.handler
+    mod.handler = ChatCatalogLLM(catalog=Catalog(config_dict))
+    try:
+        with pytest.warns(ProviderIdCollisionWarning, match="#23352"):
+            mod.register()
+    finally:
+        # Undo the global registration so other tests see a clean LiteLLM state.
+        litellm.custom_provider_map = [
+            e for e in litellm.custom_provider_map if e.get("provider") != "anthropic"
+        ]
+        mod._registered.discard("anthropic")
+        mod.handler = original_handler
 
 
 def test_rewrite_hooks_reach_the_wire(config_dict) -> None:
@@ -170,7 +208,7 @@ def test_get_catalog_reads_config_json(tmp_path, config_dict) -> None:
     path = tmp_path / "llm-catalog.json"
     path.write_text(json.dumps(config_dict), encoding="utf-8")
     h = ChatCatalogLLM(config_path=path)
-    assert set(h.get_catalog().roles) == {"fast", "reasoning"}
+    assert set(h.get_catalog().roles) == {"fast", "reasoning", "chat"}
 
 
 def test_get_catalog_rejects_non_json(tmp_path) -> None:

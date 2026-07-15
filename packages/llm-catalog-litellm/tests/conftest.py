@@ -14,6 +14,8 @@ BASE = "https://gateway.example.invalid/base"
 @pytest.fixture(autouse=True)
 def _env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EXAMPLEGW_API_KEY", "test-key")
+    # direct providers fall back to the vendor SDK's own env vars
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-test-key")
 
 
 @pytest.fixture
@@ -24,10 +26,16 @@ def config_dict() -> dict[str, Any]:
                 "id": "examplegw",
                 "gateway": {
                     "baseURL": BASE,
-                    "apiKeyEnvVarName": "EXAMPLEGW_API_KEY",
+                    "apiKey": {"envVarName": "EXAMPLEGW_API_KEY"},
                     "backends": {
-                        "anthropic": {"pathTemplate": "anthropic/{slug}"},
-                        "openai": {"pathTemplate": "gpt/{slug}"},
+                        "anthropic": {
+                            "vendor": "anthropic",
+                            "pathTemplate": "anthropic/{slug}",
+                        },
+                        "openai": {
+                            "vendor": "openai",
+                            "pathTemplate": "gpt/{slug}",
+                        },
                     },
                 },
                 "models": [
@@ -39,11 +47,19 @@ def config_dict() -> dict[str, Any]:
                         "api": "chat",
                     },
                 ],
-            }
+            },
+            {
+                # direct provider; vendor defaults to the provider id ("claude"
+                # is not a vendor, so spell it out with the string shorthand)
+                "id": "claude-direct",
+                "vendor": "anthropic",
+                "models": [{"id": "claude-sonnet-5"}],
+            },
         ],
         "roles": {
             "fast": {"provider": "examplegw", "model": "light-openai"},
-            "reasoning": {"provider": "examplegw", "model": "light-anthropic"},
+            "reasoning": "examplegw:light-anthropic",
+            "chat": "claude-direct:claude-sonnet-5",
         },
     }
 

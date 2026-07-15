@@ -1,52 +1,39 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
-    "Backend": {
+    "EnvVarRef": {
       "additionalProperties": false,
-      "description": "How one upstream backend is laid out on the gateway.\n\n``path_template`` is the path (relative to the gateway ``base_url``) the\ngateway expects, with ``{slug}`` (the model) and \u2014 for the ``google``\nbackend, whose model lives in the URL \u2014 ``{action}`` (the operation)\nplaceholders. ``action_map`` (google only) renames an operation to the\ngateway's name (e.g. ``streamGenerateContent`` ->\n``customStreamGenerateContent``); operations not listed pass through\nunchanged. ``name`` (openai-compatible only) sets the metadata namespace.",
+      "description": "A reference to an environment variable, read lazily at first use.",
       "properties": {
-        "pathTemplate": {
-          "title": "Pathtemplate",
+        "envVarName": {
+          "minLength": 1,
+          "title": "Envvarname",
           "type": "string"
-        },
-        "actionMap": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "title": "Actionmap",
-          "type": "object"
-        },
-        "name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Name"
         }
       },
       "required": [
-        "pathTemplate"
+        "envVarName"
       ],
-      "title": "Backend",
+      "title": "EnvVarRef",
       "type": "object"
     },
     "Gateway": {
       "additionalProperties": false,
-      "description": "Where the gateway lives, its key, and its topology.\n\n``api_key`` is a literal key value (for a local endpoint); when omitted the\nkey is read at call time from the environment variable named by\n``api_key_env`` (default ``AI_GATEWAY_API_KEY``, matching ai-sdk-catalog).",
+      "description": "Where the gateway lives, its key, its transport extras, and its topology.\n\n``api_key`` is a literal string or ``{\"envVarName\": \"...\"}``; when omitted,\nthe ``AI_GATEWAY_API_KEY`` environment variable is read instead (matching\nai-sdk-catalog). ``headers``/``query`` apply to every request to the\ngateway (all backends); an inline header value may embed the gateway key\nvia ``{apiKey}``.",
       "properties": {
         "baseURL": {
+          "minLength": 1,
           "title": "Baseurl",
           "type": "string"
         },
         "apiKey": {
           "anyOf": [
             {
+              "minLength": 1,
               "type": "string"
+            },
+            {
+              "$ref": "#/$defs/EnvVarRef"
             },
             {
               "type": "null"
@@ -55,28 +42,56 @@
           "default": null,
           "title": "Apikey"
         },
-        "apiKeyEnvVarName": {
-          "default": "AI_GATEWAY_API_KEY",
-          "title": "Apikeyenvvarname",
-          "type": "string"
+        "headers": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/EnvVarRef"
+                  }
+                ]
+              },
+              "propertyNames": {
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Headers"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
         },
         "backends": {
           "additionalProperties": {
-            "$ref": "#/$defs/Backend"
+            "$ref": "#/$defs/GatewayBackend"
           },
           "propertyNames": {
-            "enum": [
-              "anthropic",
-              "openai",
-              "openai-compatible",
-              "mistral",
-              "cohere",
-              "groq",
-              "xai",
-              "deepseek",
-              "perplexity",
-              "google"
-            ]
+            "minLength": 1
           },
           "title": "Backends",
           "type": "object"
@@ -89,9 +104,115 @@
       "title": "Gateway",
       "type": "object"
     },
+    "GatewayBackend": {
+      "additionalProperties": false,
+      "description": "One upstream backend on the gateway.\n\nBackends live in a map under a key of your choice, so the same vendor can\nappear more than once (e.g. two regions); each model picks its backend by\nthat key via ``backend``.\n\n``path_template`` is the path (relative to the gateway ``base_url``) the\ngateway expects, with ``{slug}`` (the model) and \u2014 for a ``google``\nbackend, whose model lives in the URL \u2014 ``{action}`` (the operation)\nplaceholders. ``action_map`` (google only) renames an operation to the\ngateway's name (e.g. ``streamGenerateContent`` ->\n``customStreamGenerateContent``); operations not listed pass through\nunchanged. ``name`` (openai-compatible only) sets the metadata namespace.\n``headers``/``query`` apply to this backend only, merged over the\ngateway-level ones (backend wins per name).",
+      "properties": {
+        "vendor": {
+          "enum": [
+            "anthropic",
+            "openai",
+            "openai-compatible",
+            "mistral",
+            "cohere",
+            "groq",
+            "xai",
+            "deepseek",
+            "perplexity",
+            "google"
+          ],
+          "title": "Vendor",
+          "type": "string"
+        },
+        "pathTemplate": {
+          "minLength": 1,
+          "title": "Pathtemplate",
+          "type": "string"
+        },
+        "actionMap": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actionmap"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "headers": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/EnvVarRef"
+                  }
+                ]
+              },
+              "propertyNames": {
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Headers"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        }
+      },
+      "required": [
+        "vendor",
+        "pathTemplate"
+      ],
+      "title": "GatewayBackend",
+      "type": "object"
+    },
+    "JsonValue": {},
     "ModelCapabilities": {
       "additionalProperties": false,
-      "description": "Python-side capability hints, namespaced under ``capabilities:``.\n\nThese are optional and ignored by the TypeScript side (whose runtime strips\nunknown keys). They tell the adapters how to drive a model without\nhardcoding anything gateway-specific.",
+      "description": "Python-side capability hints, namespaced under ``capabilities:``.\n\nThis is the one llm-catalog extension over the ai-sdk-catalog schema. It\ntells the adapters how to drive a model (structured-output mode, grounding\ntools) without hardcoding anything gateway-specific.\n\nai-sdk-catalog 0.7+ validates strictly and **rejects** unknown keys, so a\nconfig that sets ``capabilities`` no longer validates on the TypeScript\nside. Keep it out of a shared file (the defaults below then apply) and use\nit only in Python-only configs.",
       "properties": {
         "structuredOutput": {
           "default": "native",
@@ -121,39 +242,12 @@
     },
     "ModelEntry": {
       "additionalProperties": false,
-      "description": "One model a provider serves, tagged with the backend that handles it.\n\n``api`` picks the call surface for backends that have more than one\n(``responses`` | ``chat`` | ``completion``); omit it for the backend's\ndefault. It mirrors ai-sdk-catalog's ``ModelApi`` \u2014 adapters use it where it\napplies and ignore it elsewhere.",
+      "description": "One model a provider serves.\n\n``api`` picks the call surface for vendors that have more than one\n(``responses`` | ``chat`` | ``completion``); omit it for the vendor's\ndefault (Responses for OpenAI, Chat Completions for an OpenAI-compatible\nserver). ``backend``/``slug`` apply to gateway providers only (the\n``gateway.backends`` key that serves the model, and the path segment when\nit differs from ``id``). The schema keeps every field optional;\n:class:`CatalogConfig`'s validator enforces that the right ones are present\nfor the provider's kind.",
       "properties": {
         "id": {
+          "minLength": 1,
           "title": "Id",
           "type": "string"
-        },
-        "backend": {
-          "enum": [
-            "anthropic",
-            "openai",
-            "openai-compatible",
-            "mistral",
-            "cohere",
-            "groq",
-            "xai",
-            "deepseek",
-            "perplexity",
-            "google"
-          ],
-          "title": "Backend",
-          "type": "string"
-        },
-        "slug": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Slug"
         },
         "api": {
           "anyOf": [
@@ -172,63 +266,264 @@
           "default": null,
           "title": "Api"
         },
+        "backend": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Backend"
+        },
+        "slug": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slug"
+        },
         "settings": {
-          "additionalProperties": true,
-          "title": "Settings",
-          "type": "object"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "capabilities": {
           "$ref": "#/$defs/ModelCapabilities"
         }
       },
       "required": [
-        "id",
-        "backend"
+        "id"
       ],
       "title": "ModelEntry",
       "type": "object"
     },
+    "ModelSettings": {
+      "additionalProperties": false,
+      "description": "Default AI SDK call settings, mirroring ai-sdk-catalog's ``ModelSettings``.\n\nThey are defaults the adapters bake into the model they build, so anything\nset here can also be overridden per call. Every field is optional; unknown\nkeys are rejected (strict, like the TypeScript side).",
+      "properties": {
+        "maxOutputTokens": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxoutputtokens"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temperature"
+        },
+        "topP": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topp"
+        },
+        "topK": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topk"
+        },
+        "presencePenalty": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Presencepenalty"
+        },
+        "frequencyPenalty": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frequencypenalty"
+        },
+        "stopSequences": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stopsequences"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "providerOptions": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/JsonValue"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provideroptions"
+        }
+      },
+      "title": "ModelSettings",
+      "type": "object"
+    },
     "Provider": {
       "additionalProperties": false,
-      "description": "A gateway provider and the models it serves.\n\n``settings`` are provider-level call defaults; each model's own ``settings``\nare merged on top (model wins).",
+      "description": "A provider and the models it serves.\n\nExactly one kind:\n\n* **direct** \u2014 no ``gateway`` block. Its vendor is ``vendor`` (string\n  shorthand or a :class:`VendorBlock`), defaulting to ``id``.\n* **gateway** \u2014 a ``gateway`` block routes it through your own gateway\n  (its models then require a ``backend``). ``vendor`` must not be set.\n\n``settings`` are provider-level call defaults; each model's own\n``settings`` are merged on top (model wins).",
       "properties": {
         "id": {
+          "minLength": 1,
           "title": "Id",
           "type": "string"
         },
+        "vendor": {
+          "anyOf": [
+            {
+              "enum": [
+                "anthropic",
+                "openai",
+                "openai-compatible",
+                "mistral",
+                "cohere",
+                "groq",
+                "xai",
+                "deepseek",
+                "perplexity",
+                "google"
+              ],
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/VendorBlock"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vendor"
+        },
         "gateway": {
-          "$ref": "#/$defs/Gateway"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Gateway"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "settings": {
-          "additionalProperties": true,
-          "title": "Settings",
-          "type": "object"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "models": {
           "items": {
             "$ref": "#/$defs/ModelEntry"
           },
+          "minItems": 1,
           "title": "Models",
           "type": "array"
         }
       },
       "required": [
         "id",
-        "gateway",
         "models"
       ],
       "title": "Provider",
       "type": "object"
     },
-    "RoleRef": {
+    "RoleTarget": {
       "additionalProperties": false,
-      "description": "A role points at exactly one ``(provider, model)`` pair.",
+      "description": "A role's target, spelled out as an object.",
       "properties": {
         "provider": {
+          "minLength": 1,
           "title": "Provider",
           "type": "string"
         },
         "model": {
+          "minLength": 1,
           "title": "Model",
           "type": "string"
         }
@@ -237,12 +532,130 @@
         "provider",
         "model"
       ],
-      "title": "RoleRef",
+      "title": "RoleTarget",
+      "type": "object"
+    },
+    "VendorBlock": {
+      "additionalProperties": false,
+      "description": "A direct provider's vendor: which bundled vendor backs it, plus overrides.\n\nEverything is optional \u2014 ``id`` defaults to the provider's own id, and with\nno overrides the vendor SDK's defaults apply (its endpoint, its key env\nvar). The string shorthand ``\"vendor\": \"x\"`` means ``{\"id\": \"x\"}``.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "enum": [
+                "anthropic",
+                "openai",
+                "openai-compatible",
+                "mistral",
+                "cohere",
+                "groq",
+                "xai",
+                "deepseek",
+                "perplexity",
+                "google"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "baseURL": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseurl"
+        },
+        "apiKey": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/EnvVarRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Apikey"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "headers": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/EnvVarRef"
+                  }
+                ]
+              },
+              "propertyNames": {
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Headers"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        }
+      },
+      "title": "VendorBlock",
       "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "The whole catalog: providers plus the roles an app references.\n\nStructural validation lives in the field schemas; whole-config invariants\n(uniqueness, backend coherence, referential integrity) live in the\n``model_validator`` below, where the full object is available. Every issue\nis collected before raising, so one round trip surfaces them all.",
+  "description": "The whole catalog: providers plus the roles an app references.\n\nStructural validation lives in the field schemas; whole-config invariants\n(uniqueness, provider-kind coherence, gateway/backend coherence,\nreferential integrity) live in the ``model_validator`` below, where the\nfull object is available. Every issue is collected before raising, so one\nround trip surfaces them all.",
   "properties": {
     "$schema": {
       "anyOf": [
@@ -260,12 +673,21 @@
       "items": {
         "$ref": "#/$defs/Provider"
       },
+      "minItems": 1,
       "title": "Providers",
       "type": "array"
     },
     "roles": {
       "additionalProperties": {
-        "$ref": "#/$defs/RoleRef"
+        "anyOf": [
+          {
+            "pattern": "^[^:]+:.",
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/RoleTarget"
+          }
+        ]
       },
       "title": "Roles",
       "type": "object"

@@ -1,6 +1,6 @@
 # Copyright 2026 Shinsuke Mori
 # SPDX-License-Identifier: Apache-2.0
-"""llm-catalog-core: gateway-agnostic config, resolution, transport, and codegen.
+"""llm-catalog-core: runtime-agnostic config, resolution, transport, and codegen.
 
 This distribution knows nothing about any runtime adapter (Pydantic AI, LiteLLM)
 and never touches the filesystem. Parse your catalog config JSON yourself and
@@ -20,22 +20,24 @@ this package ships only ``llm_catalog.core``.
 from .catalog import Catalog
 from .codegen import to_litellm_config
 from .config import (
-    Backend,
+    API_KEY_PLACEHOLDER,
     CatalogConfig,
+    EnvVarRef,
     Gateway,
+    GatewayBackend,
     ModelCapabilities,
     ModelEntry,
+    ModelSettings,
     Provider,
     RoleRef,
+    RoleTarget,
+    VendorBlock,
     VendorName,
     config_json_schema,
+    parse_role_ref,
+    vendor_block_of,
 )
-from .errors import (
-    ConfigError,
-    LLMCatalogError,
-    ProviderIdCollisionWarning,
-    ResolutionError,
-)
+from .errors import ConfigError, LLMCatalogError, ResolutionError
 from .resolve import ResolvedModel
 from .transport import (
     BodyRewrite,
@@ -45,24 +47,30 @@ from .transport import (
 )
 
 __all__ = [
-    "Backend",
+    "API_KEY_PLACEHOLDER",
     "BodyRewrite",
     "Catalog",
     "CatalogConfig",
     "ConfigError",
+    "EnvVarRef",
     "Gateway",
+    "GatewayBackend",
     "GatewayTransport",
     "GatewayTransportSync",
     "HeaderRewrite",
     "LLMCatalogError",
     "ModelCapabilities",
     "ModelEntry",
+    "ModelSettings",
     "Provider",
-    "ProviderIdCollisionWarning",
     "ResolutionError",
     "ResolvedModel",
     "RoleRef",
+    "RoleTarget",
+    "VendorBlock",
     "VendorName",
     "config_json_schema",
+    "parse_role_ref",
     "to_litellm_config",
+    "vendor_block_of",
 ]

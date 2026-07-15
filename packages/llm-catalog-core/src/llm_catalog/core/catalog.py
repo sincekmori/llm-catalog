@@ -1,6 +1,6 @@
 # Copyright 2026 Shinsuke Mori
 # SPDX-License-Identifier: Apache-2.0
-"""The gateway-agnostic resolution entry point.
+"""The runtime-agnostic resolution entry point.
 
 :class:`Catalog` is the centre of ``llm-catalog-core``. It validates its own
 input — hand it the mapping you parsed from JSON (or a ready
@@ -23,15 +23,23 @@ from typing import Any
 from pydantic import ValidationError
 
 from .config import (
+    GATEWAY_DEFAULT_API_KEY_ENV,
     CatalogConfig,
     ModelEntry,
+    ModelSettings,
     Provider,
     format_validation_error,
+    parse_role_ref,
+    vendor_block_of,
 )
 from .errors import ConfigError, ResolutionError
 from .resolve import ResolvedModel
 
 __all__ = ["Catalog"]
+
+
+def _settings_dict(settings: ModelSettings | None) -> dict[str, Any]:
+    return {} if settings is None else settings.as_dict()
 
 
 def _merge_settings(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -91,7 +99,8 @@ class Catalog:
             raise ResolutionError(
                 f'Unknown role "{role}". Defined roles: {sorted(self._config.roles)}.'
             )
-        return self._resolve(ref.provider, ref.model)
+        target = parse_role_ref(ref)
+        return self._resolve(target.provider, target.model)
 
     def resolve_key(self, key: str) -> ResolvedModel:
         """Resolve a ``"provider:model_id"`` key to a :class:`ResolvedModel`."""
@@ -117,21 +126,54 @@ class Catalog:
                 f'Unknown model "{model_id}" in provider "{provider_id}".'
             )
 
-        backend = provider.gateway.backends[model.backend]
         # provider defaults first, then model settings win on conflict.
-        settings = _merge_settings(provider.settings, model.settings)
+        settings = _merge_settings(
+            _settings_dict(provider.settings), _settings_dict(model.settings)
+        )
 
+        if provider.gateway is not None:
+            gateway = provider.gateway
+            if model.backend is None:  # config validation guarantees it is set
+                raise ResolutionError(
+                    f'Model "{model_id}" in gateway provider "{provider_id}" '
+                    'has no "backend".'
+                )
+            backend = gateway.backends[model.backend]
+            return ResolvedModel(
+                kind="gateway",
+                provider_id=provider.id,
+                model_id=model.id,
+                vendor=backend.vendor,
+                api=model.api,
+                base_url=gateway.base_url,
+                api_key_config=gateway.api_key,
+                default_api_key_env=GATEWAY_DEFAULT_API_KEY_ENV,
+                name=backend.name,
+                backend=model.backend,
+                slug=model.slug or model.id,
+                path_template=backend.path_template,
+                action_map=dict(backend.action_map or {}),
+                # gateway-level extras apply to every backend; the backend's own
+                # entries are merged on top (backend wins per name).
+                headers={**(gateway.headers or {}), **(backend.headers or {})},
+                query={**(gateway.query or {}), **(backend.query or {})},
+                settings=settings,
+                capabilities=model.capabilities,
+            )
+
+        block = vendor_block_of(provider)
         return ResolvedModel(
+            kind="direct",
             provider_id=provider.id,
             model_id=model.id,
-            backend=model.backend,
-            slug=model.slug or model.id,
+            vendor=(block.id if block is not None else None) or provider.id,
             api=model.api,
-            base_url=provider.gateway.base_url,
-            api_key_env=provider.gateway.api_key_env,
-            api_key_literal=provider.gateway.api_key,
-            path_template=backend.path_template,
-            action_map=dict(backend.action_map),
+            base_url=block.base_url if block is not None else None,
+            api_key_config=block.api_key if block is not None else None,
+            default_api_key_env=None,  # the vendor SDK's own default applies
+            name=block.name if block is not None else None,
+            headers=dict(block.headers or {}) if block is not None else {},
+            query=dict(block.query or {}) if block is not None else {},
             settings=settings,
             capabilities=model.capabilities,
         )

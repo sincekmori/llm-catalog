@@ -19,12 +19,15 @@ Upstream strategy (route 1 of the spec's §6.2)
 ----------------------------------------------
 The handler reuses LiteLLM's own request building and response conversion: it
 calls ``litellm.(a)completion`` against the matching **built-in** provider
-(``anthropic`` / ``openai`` / ``gemini``) with a client whose transport is the
-core :class:`~llm_catalog.core.GatewayTransport`. LiteLLM builds the native body
-and parses the native response into OpenAI form; the transport rewrites the path
-to the gateway's layout. (If a future LiteLLM/version stops honouring a custom
-client, the documented fallback — §6.2 route 2 — is to convert native responses
-to ``ModelResponse`` / ``GenericStreamingChunk`` by hand.)
+(``anthropic`` / ``openai`` / ``gemini``; an ``openai-compatible`` vendor goes
+through ``openai``) with a client whose transport is the core
+:class:`~llm_catalog.core.GatewayTransport`. LiteLLM builds the native body
+and parses the native response into OpenAI form; for a gateway model the
+transport rewrites the path to the gateway's layout, and for a direct model it
+only injects the declarative ``headers``/``query``. (If a future LiteLLM
+version stops honouring a custom client, the documented fallback — §6.2 route
+2 — is to convert native responses to ``ModelResponse`` /
+``GenericStreamingChunk`` by hand.)
 """
 
 import json
@@ -49,6 +52,7 @@ from llm_catalog.core import (
     HeaderRewrite,
     ResolvedModel,
 )
+from llm_catalog.core.codegen import to_litellm_settings
 from llm_catalog.core.errors import ConfigError, ResolutionError
 
 __all__ = ["CONFIG_ENV_VAR", "ChatCatalogLLM"]
@@ -59,10 +63,11 @@ CONFIG_ENV_VAR = "LLM_CATALOG_CONFIG"
 # Default config location when CONFIG_ENV_VAR is unset.
 _DEFAULT_CONFIG_PATH = "llm-catalog.json"
 
-# catalog backend -> LiteLLM built-in provider prefix used for the inner call.
-_BACKEND_TO_LITELLM: dict[str, str] = {
+# catalog vendor -> LiteLLM built-in provider prefix used for the inner call.
+_VENDOR_TO_LITELLM: dict[str, str] = {
     "anthropic": "anthropic",
     "openai": "openai",
+    "openai-compatible": "openai",
     "google": "gemini",
 }
 
@@ -145,22 +150,28 @@ class ChatCatalogLLM(CustomLLM):
         litellm_params: dict[str, Any] | None,
     ) -> tuple[ResolvedModel, str, dict[str, Any]]:
         rm = self._resolve(model, litellm_params)
-        prefix = _BACKEND_TO_LITELLM.get(rm.backend)
+        prefix = _VENDOR_TO_LITELLM.get(rm.vendor)
         if prefix is None:
-            # The config schema accepts every ai-sdk-catalog backend so a shared
-            # file validates as-is; this adapter can only drive these three.
+            # The config schema accepts every ai-sdk-catalog vendor so a shared
+            # file validates as-is; this adapter can only drive these four.
             raise ResolutionError(
-                f'Backend "{rm.backend}" (model "{rm.provider_id}:{rm.model_id}") '
-                "is not supported by the LiteLLM adapter. Supported backends: "
-                f"{sorted(_BACKEND_TO_LITELLM)}."
+                f'Vendor "{rm.vendor}" (model "{rm.provider_id}:{rm.model_id}") '
+                "is not supported by the LiteLLM adapter. Supported vendors: "
+                f"{sorted(_VENDOR_TO_LITELLM)}."
             )
-        inner_model = f"{prefix}/{rm.slug}"
+        # Gateway paths use the slug; a direct call carries the model id itself.
+        inner_model = f"{prefix}/{rm.slug or rm.model_id}"
         # provider/model settings are defaults; the caller's params win.
-        params: dict[str, Any] = {**rm.settings, **(optional_params or {})}
+        params: dict[str, Any] = {
+            **to_litellm_settings(rm.settings),
+            **(optional_params or {}),
+        }
         params.pop("stream", None)  # set explicitly per method
         return rm, inner_model, params
 
     # --- client construction (transport carries the path rewrite) -----------
+    # A gateway model gets the path rewrite; a direct model (path_template is
+    # None) only the declarative headers/query and the code-level hooks.
 
     def _async_client(self, rm: ResolvedModel) -> AsyncHTTPHandler | AsyncOpenAI:
         client = httpx.AsyncClient(
@@ -168,14 +179,16 @@ class ChatCatalogLLM(CustomLLM):
                 httpx.AsyncHTTPTransport(),
                 base_url=rm.base_url,
                 path_template=rm.path_template,
-                backend=rm.backend,
+                vendor=rm.vendor,
                 action_map=rm.action_map,
                 slug=rm.slug,
+                headers=rm.resolved_headers(),
+                query=rm.query,
                 header_rewrite=self._header_rewrite,
                 body_rewrite=self._body_rewrite,
             )
         )
-        if rm.backend == "openai":
+        if _VENDOR_TO_LITELLM.get(rm.vendor) == "openai":
             return AsyncOpenAI(
                 api_key=rm.api_key(), base_url=rm.base_url, http_client=client
             )
@@ -189,14 +202,16 @@ class ChatCatalogLLM(CustomLLM):
                 httpx.HTTPTransport(),
                 base_url=rm.base_url,
                 path_template=rm.path_template,
-                backend=rm.backend,
+                vendor=rm.vendor,
                 action_map=rm.action_map,
                 slug=rm.slug,
+                headers=rm.resolved_headers(),
+                query=rm.query,
                 header_rewrite=self._header_rewrite,
                 body_rewrite=self._body_rewrite,
             )
         )
-        if rm.backend == "openai":
+        if _VENDOR_TO_LITELLM.get(rm.vendor) == "openai":
             return OpenAI(
                 api_key=rm.api_key(), base_url=rm.base_url, http_client=client
             )

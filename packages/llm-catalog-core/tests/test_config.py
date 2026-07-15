@@ -7,12 +7,7 @@ from typing import Any
 
 import pytest
 
-from llm_catalog.core import (
-    Catalog,
-    CatalogConfig,
-    ConfigError,
-    ProviderIdCollisionWarning,
-)
+from llm_catalog.core import Catalog, CatalogConfig, ConfigError, EnvVarRef
 
 
 def parse(data: dict[str, Any]) -> CatalogConfig:
@@ -23,9 +18,11 @@ def parse(data: dict[str, Any]) -> CatalogConfig:
 def test_parses_camelcase_aliases(config_dict: dict[str, Any]) -> None:
     cfg = parse(config_dict)
     gw = cfg.providers[0].gateway
+    assert gw is not None
     assert gw.base_url == "https://gateway.example.invalid/base"
-    assert gw.api_key_env == "EXAMPLEGW_API_KEY"
+    assert gw.api_key == EnvVarRef(envVarName="EXAMPLEGW_API_KEY")
     assert gw.backends["anthropic"].path_template == "anthropic/{slug}"
+    assert gw.backends["anthropic"].vendor == "anthropic"
     assert gw.backends["google"].action_map == {
         "streamGenerateContent": "customStreamGenerateContent"
     }
@@ -57,33 +54,63 @@ def test_top_level_schema_key_accepted(config_dict: dict[str, Any]) -> None:
     parse(config_dict)
 
 
-def test_api_key_env_defaults_to_gateway_var(config_dict: dict[str, Any]) -> None:
-    del config_dict["providers"][0]["gateway"]["apiKeyEnvVarName"]
-    cfg = parse(config_dict)
-    assert cfg.providers[0].gateway.api_key_env == "AI_GATEWAY_API_KEY"
+def test_api_key_env_var_name_removed(config_dict: dict[str, Any]) -> None:
+    # The 0.7 schema replaced apiKeyEnvVarName with apiKey: {"envVarName": ...};
+    # strict validation makes the removed key fail loudly.
+    config_dict["providers"][0]["gateway"]["apiKeyEnvVarName"] = "EXAMPLEGW_API_KEY"
+    with pytest.raises(ConfigError, match="apiKeyEnvVarName"):
+        parse(config_dict)
 
 
 def test_api_key_literal_accepted(config_dict: dict[str, Any]) -> None:
     config_dict["providers"][0]["gateway"]["apiKey"] = "local-dummy"
     cfg = parse(config_dict)
-    assert cfg.providers[0].gateway.api_key == "local-dummy"
+    gw = cfg.providers[0].gateway
+    assert gw is not None
+    assert gw.api_key == "local-dummy"
 
 
-def test_full_vendor_backend_set_accepted(config_dict: dict[str, Any]) -> None:
-    # Every ai-sdk-catalog backend name validates, so a shared file passes even
-    # when some backends are only driven from the TypeScript side.
+def test_free_form_backend_keys(config_dict: dict[str, Any]) -> None:
+    # Backends live under keys of your choice; the same vendor may appear twice.
     gw = config_dict["providers"][0]["gateway"]
-    gw["backends"]["mistral"] = {"pathTemplate": "mistral/{slug}"}
+    gw["backends"]["claude-eu"] = {
+        "vendor": "anthropic",
+        "pathTemplate": "eu/anthropic/{slug}",
+    }
     config_dict["providers"][0]["models"].append(
-        {"id": "m-large", "backend": "mistral"}
+        {"id": "eu-anthropic", "backend": "claude-eu"}
     )
     cfg = parse(config_dict)
-    assert cfg.providers[0].models[-1].backend == "mistral"
+    assert cfg.providers[0].models[-1].backend == "claude-eu"
 
 
-def test_unknown_backend_name_rejected(config_dict: dict[str, Any]) -> None:
+def test_backend_requires_vendor(config_dict: dict[str, Any]) -> None:
     gw = config_dict["providers"][0]["gateway"]
-    gw["backends"]["bogus"] = {"pathTemplate": "x/{slug}"}
+    del gw["backends"]["anthropic"]["vendor"]
+    with pytest.raises(ConfigError, match="vendor"):
+        parse(config_dict)
+
+
+def test_unknown_backend_vendor_rejected(config_dict: dict[str, Any]) -> None:
+    gw = config_dict["providers"][0]["gateway"]
+    gw["backends"]["bogus"] = {"vendor": "bogus", "pathTemplate": "x/{slug}"}
+    with pytest.raises(ConfigError):
+        parse(config_dict)
+
+
+def test_role_shorthand_and_object_form(config_dict: dict[str, Any]) -> None:
+    # "provider:model" and {provider, model} are equivalent.
+    cfg = parse(config_dict)
+    assert cfg.roles["search"] == "examplegw:search-google"
+    config_dict["roles"]["search"] = {
+        "provider": "examplegw",
+        "model": "search-google",
+    }
+    parse(config_dict)
+
+
+def test_role_shorthand_without_colon_rejected(config_dict: dict[str, Any]) -> None:
+    config_dict["roles"]["search"] = "just-a-model-id"
     with pytest.raises(ConfigError):
         parse(config_dict)
 
@@ -104,6 +131,12 @@ def test_backend_not_configured_rejected(config_dict: dict[str, Any]) -> None:
     # remove the google backend but keep a model that points at it
     del config_dict["providers"][0]["gateway"]["backends"]["google"]
     with pytest.raises(ConfigError, match="is not configured"):
+        parse(config_dict)
+
+
+def test_gateway_model_requires_backend(config_dict: dict[str, Any]) -> None:
+    del config_dict["providers"][0]["models"][0]["backend"]
+    with pytest.raises(ConfigError, match='must set a "backend"'):
         parse(config_dict)
 
 
@@ -149,9 +182,23 @@ def test_duplicate_model_id_rejected(config_dict: dict[str, Any]) -> None:
         parse(config_dict)
 
 
+def test_provider_id_must_not_contain_colon(config_dict: dict[str, Any]) -> None:
+    config_dict["providers"][0]["id"] = "example:gw"
+    config_dict["roles"] = {}
+    with pytest.raises(ConfigError, match='must not contain ":"'):
+        parse(config_dict)
+
+
 def test_extra_keys_forbidden(config_dict: dict[str, Any]) -> None:
     config_dict["providers"][0]["bogus"] = 1
     with pytest.raises(ConfigError):
+        parse(config_dict)
+
+
+def test_unknown_settings_key_rejected(config_dict: dict[str, Any]) -> None:
+    # settings are typed and strict, exactly like ai-sdk-catalog's ModelSettings.
+    config_dict["providers"][0]["settings"]["temperatur"] = 0
+    with pytest.raises(ConfigError, match="temperatur"):
         parse(config_dict)
 
 
@@ -168,15 +215,68 @@ def test_all_issues_reported_at_once(config_dict: dict[str, Any]) -> None:
     assert "Duplicate model id" in message
 
 
-def test_provider_id_collision_warns(config_dict: dict[str, Any]) -> None:
-    config_dict["providers"][0]["id"] = "openai"  # collides with a LiteLLM built-in
-    # fix the role references so only the collision warning fires
-    for role in config_dict["roles"].values():
-        role["provider"] = "openai"
-    with pytest.warns(ProviderIdCollisionWarning, match="#23352"):
-        parse(config_dict)
-
-
 def test_validated_config_passes_through(config_dict: dict[str, Any]) -> None:
     cfg = parse(config_dict)
     assert Catalog(cfg).config is cfg
+
+
+# --- direct providers ---------------------------------------------------------
+
+
+def test_direct_providers_accepted(direct_config_dict: dict[str, Any]) -> None:
+    cfg = parse(direct_config_dict)
+    assert cfg.providers[0].vendor is None  # defaults to the provider id
+    assert cfg.providers[1].vendor == "openai"  # string shorthand
+    block = cfg.providers[2].vendor
+    assert not isinstance(block, str)
+    assert block is not None
+    assert block.id == "openai-compatible"
+    assert block.api_key == EnvVarRef(envVarName="FIREWORKS_API_KEY")
+
+
+def test_vendor_and_gateway_mutually_exclusive(config_dict: dict[str, Any]) -> None:
+    config_dict["providers"][0]["vendor"] = "openai"
+    with pytest.raises(ConfigError, match="either direct or gateway-routed"):
+        parse(config_dict)
+
+
+def test_direct_model_must_not_set_backend_or_slug(
+    direct_config_dict: dict[str, Any],
+) -> None:
+    direct_config_dict["providers"][0]["models"][0]["backend"] = "anthropic"
+    direct_config_dict["providers"][0]["models"][0]["slug"] = "claude"
+    with pytest.raises(ConfigError) as excinfo:
+        parse(direct_config_dict)
+    message = str(excinfo.value)
+    assert '"backend"' in message
+    assert '"slug"' in message
+
+
+def test_openai_compatible_requires_base_url(
+    direct_config_dict: dict[str, Any],
+) -> None:
+    del direct_config_dict["providers"][2]["vendor"]["baseURL"]
+    with pytest.raises(ConfigError, match="baseURL"):
+        parse(direct_config_dict)
+
+
+def test_api_key_placeholder_requires_api_key(
+    direct_config_dict: dict[str, Any],
+) -> None:
+    block = direct_config_dict["providers"][2]["vendor"]
+    del block["apiKey"]
+    block["headers"] = {"Authorization": "Bearer {apiKey}"}
+    with pytest.raises(ConfigError, match=r"\{apiKey\}"):
+        parse(direct_config_dict)
+
+
+# --- shared-file guarantee ------------------------------------------------------
+
+
+def test_ai_sdk_catalog_advanced_example_validates(
+    advanced_config_dict: dict[str, Any],
+) -> None:
+    # The whole point of this library: an ai-sdk-catalog config, unmodified.
+    cfg = parse(advanced_config_dict)
+    assert {p.id for p in cfg.providers} == {"openai", "anthropic", "fireworks", "acme"}
+    assert set(cfg.roles) == {"chat", "search", "summarize", "bulk"}

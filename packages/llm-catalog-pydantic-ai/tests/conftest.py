@@ -10,11 +10,15 @@ from llm_catalog.core import Catalog
 from llm_catalog.pydantic_ai import PydanticAICatalog
 
 BASE = "https://gateway.example.invalid/base"
+COMPAT_BASE = "https://compat.example.invalid/v1"
 
 
 @pytest.fixture(autouse=True)
 def _env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EXAMPLEGW_API_KEY", "test-key")
+    # direct providers fall back to the vendor SDK's own env vars
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-test-key")
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fireworks-test-key")
 
 
 @pytest.fixture
@@ -25,11 +29,18 @@ def config_dict() -> dict[str, Any]:
                 "id": "examplegw",
                 "gateway": {
                     "baseURL": BASE,
-                    "apiKeyEnvVarName": "EXAMPLEGW_API_KEY",
+                    "apiKey": {"envVarName": "EXAMPLEGW_API_KEY"},
                     "backends": {
-                        "anthropic": {"pathTemplate": "anthropic/{slug}"},
-                        "openai": {"pathTemplate": "gpt/{slug}"},
+                        "anthropic": {
+                            "vendor": "anthropic",
+                            "pathTemplate": "anthropic/{slug}",
+                        },
+                        "openai": {
+                            "vendor": "openai",
+                            "pathTemplate": "gpt/{slug}",
+                        },
                         "google": {
+                            "vendor": "google",
                             "pathTemplate": "gemini/{slug}:{action}",
                             "actionMap": {
                                 "streamGenerateContent": "customStreamGenerateContent"
@@ -51,9 +62,9 @@ def config_dict() -> dict[str, Any]:
                         "capabilities": {"structured_output": "native"},
                     },
                     {
+                        # api omitted -> the OpenAI vendor default (Responses API)
                         "id": "resp-openai",
                         "backend": "openai",
-                        "api": "responses",
                         "capabilities": {"structured_output": "prompted"},
                     },
                     {
@@ -62,13 +73,32 @@ def config_dict() -> dict[str, Any]:
                         "capabilities": {"grounding": ["web_search", "code_execution"]},
                     },
                 ],
-            }
+            },
+            {
+                # direct provider; vendor defaults to the provider id
+                "id": "anthropic",
+                "models": [{"id": "claude-sonnet-5"}],
+            },
+            {
+                # direct openai-compatible provider with a vendor block
+                "id": "fireworks",
+                "vendor": {
+                    "id": "openai-compatible",
+                    "baseURL": COMPAT_BASE,
+                    "apiKey": {"envVarName": "FIREWORKS_API_KEY"},
+                    "name": "fireworks",
+                    "headers": {"x-tenant": "acme"},
+                },
+                "models": [{"id": "gpt-oss-120b"}],
+            },
         ],
         "roles": {
             "fast": {"provider": "examplegw", "model": "light-openai"},
-            "respond": {"provider": "examplegw", "model": "resp-openai"},
+            "respond": "examplegw:resp-openai",
             "reasoning": {"provider": "examplegw", "model": "light-anthropic"},
-            "search": {"provider": "examplegw", "model": "search-google"},
+            "search": "examplegw:search-google",
+            "chat": "anthropic:claude-sonnet-5",
+            "bulk": "fireworks:gpt-oss-120b",
         },
     }
 

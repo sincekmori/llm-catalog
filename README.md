@@ -8,15 +8,15 @@
 [![ty](https://img.shields.io/badge/types-ty-261230)](https://github.com/astral-sh/ty)
 
 Drive multiple LLM runtimes from one declarative JSON config — implement nothing, configure once.
-It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `llm-catalog.json` drives TypeScript and Python alike.
-You reference a **role** name (`fast`, `reasoning`, `search`, …) and it resolves to a concrete model behind your own LLM gateway.
+It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `llm-catalog.json` drives TypeScript and Python alike (schema parity with ai-sdk-catalog 0.7).
+You reference a **role** name (`fast`, `reasoning`, `search`, …) and it resolves to a concrete model — either a **direct** vendor endpoint (OpenAI, Anthropic, Google, any OpenAI-compatible server) or a model behind your own **gateway**.
 
 It targets two runtimes from the same config and the same core.
 
 - **Pydantic AI** — in-process, native fidelity.
 - **LiteLLM** — OpenAI-compatible, both in-process (SDK) and as a central proxy.
 
-Gateway quirks (path layout, action names, auth headers, structured-output mode, grounding tools) are honoured as config values, never hardcoded.
+Gateway quirks (path layout, action names, auth headers, query params, structured-output mode, grounding tools) are honoured as config values, never hardcoded.
 The same generic code therefore works for any gateway that exposes native provider formats under a path prefix.
 
 ## Packages
@@ -46,8 +46,10 @@ pip install llm-catalog-core          # core only (config / resolve / codegen)
 
 ## The config: `llm-catalog.json`
 
-The config format is **JSON**, shared verbatim with `ai-sdk-catalog` — write one file and hand it to both runtimes.
-Roles point at a `(provider, model)`, and each model names the gateway `backend` that serves it.
+The config format is **JSON**, shared verbatim with `ai-sdk-catalog` (0.7) — write one file and hand it to both runtimes.
+A provider is either **direct** (its `vendor` — string shorthand or a block with `baseURL` / `apiKey` / `headers` / `query` — defaults to the provider `id`) or **gateway-routed** (a `gateway` block with free-form `backends`, each naming its `vendor`; every model then names its `backend` key).
+Roles point at a `(provider, model)` pair, written either as an object or as the `"provider:model"` shorthand.
+Secrets are a literal string only for local endpoints; otherwise `{"envVarName": "..."}` reads the environment lazily (a gateway with no `apiKey` falls back to `AI_GATEWAY_API_KEY`).
 See [`examples/llm-catalog.example.json`](examples/llm-catalog.example.json) for the full placeholder file.
 
 ```json
@@ -55,36 +57,45 @@ See [`examples/llm-catalog.example.json`](examples/llm-catalog.example.json) for
   "$schema": "./node_modules/ai-sdk-catalog/schema.json",
   "providers": [
     {
+      "id": "anthropic",
+      "models": [{ "id": "claude-sonnet-5" }]
+    },
+    {
       "id": "examplegw",
       "gateway": {
         "baseURL": "https://gateway.example.invalid/base",
-        "apiKeyEnvVarName": "EXAMPLEGW_API_KEY",
+        "apiKey": { "envVarName": "EXAMPLEGW_API_KEY" },
+        "headers": { "Authorization": "Bearer {apiKey}" },
+        "query": { "api-version": "2026-01-01" },
         "backends": {
-          "anthropic": { "pathTemplate": "anthropic/{slug}" },
-          "openai": { "pathTemplate": "gpt/{slug}" },
-          "google": {
+          "claude": { "vendor": "anthropic", "pathTemplate": "anthropic/{slug}" },
+          "gpt": { "vendor": "openai", "pathTemplate": "gpt/{slug}" },
+          "gemini": {
+            "vendor": "google",
             "pathTemplate": "gemini/{slug}:{action}",
             "actionMap": { "streamGenerateContent": "customStreamGenerateContent" }
           }
         }
       },
       "models": [
-        { "id": "light-openai", "backend": "openai", "api": "chat" },
-        { "id": "light-anthropic", "backend": "anthropic" },
-        { "id": "search-google", "backend": "google" }
+        { "id": "light-openai", "backend": "gpt", "api": "chat" },
+        { "id": "light-anthropic", "backend": "claude" },
+        { "id": "search-google", "backend": "gemini" }
       ]
     }
   ],
   "roles": {
+    "chat": "anthropic:claude-sonnet-5",
     "fast": { "provider": "examplegw", "model": "light-openai" },
-    "reasoning": { "provider": "examplegw", "model": "light-anthropic" },
-    "search": { "provider": "examplegw", "model": "search-google" }
+    "reasoning": "examplegw:light-anthropic",
+    "search": "examplegw:search-google"
   }
 }
 ```
 
 `llm-catalog-core` ships the schema as `schema.json` inside the package (`llm_catalog/core/schema.json`; also exposed as `llm_catalog.core.config_json_schema()`), so editors validate and autocomplete the file — point `"$schema"` at whichever side's schema fits your repo.
-The Python-only `capabilities` block (structured-output mode, grounding tools) is stripped by `ai-sdk-catalog`'s runtime, so a file using it still drives both sides; prefer this package's schema for editor validation then.
+Validation is strict on both sides: an unknown key fails loudly instead of being silently dropped.
+The one Python-only extension is the `capabilities` block on a model (structured-output mode, grounding tools); since `ai-sdk-catalog` 0.7 rejects unknown keys, keep `capabilities` out of a file shared with TypeScript (its defaults then apply here) and use it only in Python-only configs.
 
 Loading is explicit and filesystem-free in every package: read the file yourself and hand the parsed mapping over.
 To keep using YAML, parse it yourself and pass the result the same way (`Catalog(yaml.safe_load(text))`).
@@ -177,7 +188,7 @@ Confirm them before relying on them; the code documents the fallback at each poi
 2. Whether google-genai honours a custom httpx client/transport; if not, fall back to building a genai `Client` and passing it via `GoogleProvider(client=...)`.
 3. Whether Pydantic AI's builtin grounding tool emits the exact variant your gateway expects, else drive the raw vendor client.
 4. Whether LiteLLM honours a custom client and the path rewrite takes effect (the plugin's route-1 strategy), verified against the mock gateway here for all three backends; the documented fallback (route 2) is hand-written native→OpenAI conversion.
-5. LiteLLM gotchas mitigated in code: provider-id/built-in collision (#23352, warned at load) and per-model `litellm_params` not reaching the handler (#18216, the handler self-resolves).
+5. LiteLLM gotchas mitigated in code: provider-id/built-in collision (#23352, warned at `register()` — direct providers naturally named `openai`/`anthropic` route to LiteLLM's built-ins, not the handler) and per-model `litellm_params` not reaching the handler (#18216, the handler self-resolves).
 6. Pydantic AI output-mode symbols `NativeOutput` / `ToolOutput` / `PromptedOutput` (confirmed against the installed version).
 7. LiteLLM pinned `>=1.90.0` (the verified floor; also past the 1.82.7 / 1.82.8 supply-chain incident).
 8. uv workspace × PEP 420 namespace × editable install: after `uv sync`, all three `llm_catalog.*` import in one venv (covered by the test suite and CI).

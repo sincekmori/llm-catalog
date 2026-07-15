@@ -2,18 +2,56 @@
   "$schema": "../packages/llm-catalog-core/src/llm_catalog/core/schema.json",
   "providers": [
     {
+      "id": "anthropic",
+      "models": [
+        {
+          "id": "claude-sonnet-5",
+          "settings": {
+            "temperature": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "fireworks",
+      "vendor": {
+        "id": "openai-compatible",
+        "baseURL": "https://api.fireworks.example.invalid/inference/v1",
+        "apiKey": {
+          "envVarName": "FIREWORKS_API_KEY"
+        },
+        "name": "fireworks"
+      },
+      "models": [
+        {
+          "id": "accounts/fireworks/models/gpt-oss-120b"
+        }
+      ]
+    },
+    {
       "id": "examplegw",
       "gateway": {
         "baseURL": "https://gateway.example.invalid/base",
-        "apiKeyEnvVarName": "EXAMPLEGW_API_KEY",
+        "apiKey": {
+          "envVarName": "EXAMPLEGW_API_KEY"
+        },
+        "headers": {
+          "Authorization": "Bearer {apiKey}"
+        },
+        "query": {
+          "api-version": "2026-01-01"
+        },
         "backends": {
-          "anthropic": {
+          "claude": {
+            "vendor": "anthropic",
             "pathTemplate": "anthropic/{slug}"
           },
-          "openai": {
+          "gpt": {
+            "vendor": "openai",
             "pathTemplate": "gpt/{slug}"
           },
-          "google": {
+          "gemini": {
+            "vendor": "google",
             "pathTemplate": "gemini/{slug}:{action}",
             "actionMap": {
               "streamGenerateContent": "customStreamGenerateContent"
@@ -27,23 +65,20 @@
       "models": [
         {
           "id": "light-anthropic",
-          "backend": "anthropic",
+          "backend": "claude",
           "capabilities": {
             "structuredOutput": "tool"
           }
         },
         {
           "id": "light-openai",
-          "backend": "openai",
-          "slug": "light-openai",
-          "api": "chat",
-          "capabilities": {
-            "structuredOutput": "native"
-          }
+          "backend": "gpt",
+          "slug": "oai-light",
+          "api": "chat"
         },
         {
           "id": "search-google",
-          "backend": "google",
+          "backend": "gemini",
           "capabilities": {
             "multiStepTools": false,
             "grounding": ["web_search", "url_context", "code_execution"]
@@ -53,8 +88,10 @@
     }
   ],
   "roles": {
+    "chat": "anthropic:claude-sonnet-5",
+    "bulk": "fireworks:accounts/fireworks/models/gpt-oss-120b",
     "fast": { "provider": "examplegw", "model": "light-openai" },
-    "reasoning": { "provider": "examplegw", "model": "light-anthropic" },
-    "search": { "provider": "examplegw", "model": "search-google" }
+    "reasoning": "examplegw:light-anthropic",
+    "search": "examplegw:search-google"
   }
 }
