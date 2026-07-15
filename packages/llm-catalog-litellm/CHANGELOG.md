@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-litellm-v0.4.0...llm-catalog-litellm-v0.5.0) (2026-07-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* restructure the config schema for parity with ai-sdk-catalog 0.7
+
+### Features
+
+* restructure the config schema for parity with ai-sdk-catalog 0.7 ([8050cc2](https://github.com/sincekmori/llm-catalog/commit/8050cc28f91afe583d352d2a65f7293705a85da5))
+
 ## [0.4.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-litellm-v0.3.0...llm-catalog-litellm-v0.4.0) (2026-07-10)
 
 
