@@ -205,7 +205,7 @@ def test_get_catalog_reads_config_json(tmp_path, config_dict) -> None:
 
     from llm_catalog.litellm import ChatCatalogLLM
 
-    path = tmp_path / "llm-catalog.json"
+    path = tmp_path / "ai-sdk-catalog.json"
     path.write_text(json.dumps(config_dict), encoding="utf-8")
     h = ChatCatalogLLM(config_path=path)
     assert set(h.get_catalog().roles) == {"fast", "reasoning", "chat"}
@@ -215,8 +215,64 @@ def test_get_catalog_rejects_non_json(tmp_path) -> None:
     from llm_catalog.core import ConfigError
     from llm_catalog.litellm import ChatCatalogLLM
 
-    path = tmp_path / "llm-catalog.json"
+    path = tmp_path / "ai-sdk-catalog.json"
     path.write_text("providers: []", encoding="utf-8")  # YAML, not JSON
     h = ChatCatalogLLM(config_path=path)
     with pytest.raises(ConfigError, match="not valid JSON"):
         h.get_catalog()
+
+
+# --- default config search chain: env var > ai-sdk-catalog.json > legacy ------
+
+
+def _write_config(path, config_dict, marker_role: str) -> None:
+    """Write config_dict plus a marker role so tests can tell files apart."""
+    import json
+
+    cfg = json.loads(json.dumps(config_dict))
+    cfg["roles"][marker_role] = "examplegw:light-openai"
+    path.write_text(json.dumps(cfg), encoding="utf-8")
+
+
+def test_config_search_env_var_wins(tmp_path, monkeypatch, config_dict) -> None:
+    from llm_catalog.litellm import CONFIG_ENV_VAR, ChatCatalogLLM
+
+    monkeypatch.chdir(tmp_path)
+    _write_config(tmp_path / "env.json", config_dict, "from-env")
+    _write_config(tmp_path / "ai-sdk-catalog.json", config_dict, "from-new")
+    _write_config(tmp_path / "llm-catalog.json", config_dict, "from-legacy")
+    monkeypatch.setenv(CONFIG_ENV_VAR, str(tmp_path / "env.json"))
+
+    assert "from-env" in ChatCatalogLLM().get_catalog().roles
+
+
+def test_config_search_prefers_new_default_over_legacy(
+    tmp_path, monkeypatch, config_dict
+) -> None:
+    import warnings
+
+    from llm_catalog.litellm import CONFIG_ENV_VAR, ChatCatalogLLM
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CONFIG_ENV_VAR, raising=False)
+    _write_config(tmp_path / "ai-sdk-catalog.json", config_dict, "from-new")
+    _write_config(tmp_path / "llm-catalog.json", config_dict, "from-legacy")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)  # new name: no warning
+        catalog = ChatCatalogLLM().get_catalog()
+    assert "from-new" in catalog.roles
+
+
+def test_config_search_legacy_fallback_warns(
+    tmp_path, monkeypatch, config_dict
+) -> None:
+    from llm_catalog.litellm import CONFIG_ENV_VAR, ChatCatalogLLM
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CONFIG_ENV_VAR, raising=False)
+    _write_config(tmp_path / "llm-catalog.json", config_dict, "from-legacy")
+
+    with pytest.warns(DeprecationWarning, match="ai-sdk-catalog.json"):
+        catalog = ChatCatalogLLM().get_catalog()
+    assert "from-legacy" in catalog.roles

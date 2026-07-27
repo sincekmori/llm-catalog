@@ -105,8 +105,9 @@ _registered: set[str] = set()
 def register() -> None:
     """Register :data:`handler` for each provider id in the catalog.
 
-    Loads the catalog config JSON (via ``LLM_CATALOG_CONFIG`` or the default
-    ``llm-catalog.json``) and adds a ``custom_provider_map`` entry per provider
+    Loads the catalog config JSON (via ``LLM_CATALOG_CONFIG``, else the
+    default ``ai-sdk-catalog.json``, else the legacy ``llm-catalog.json``)
+    and adds a ``custom_provider_map`` entry per provider
     id. Idempotent: calling it repeatedly is safe and adds nothing the second
     time. Raises if no catalog can be loaded, so a misconfigured setup fails
     loudly rather than silently. A provider id that collides with a built-in

@@ -11,9 +11,10 @@ One implementation serves both deployment shapes:
   its ``custom_provider_map`` (no ``register`` call needed).
 
 Resolution is self-contained: the handler reads the catalog config JSON itself
-(``LLM_CATALOG_CONFIG`` or ``llm-catalog.json``) and resolves the role/model
-from it, so the proxy never needs gateway details in ``litellm_params``
-(sidestepping LiteLLM issue #18216).
+(``LLM_CATALOG_CONFIG``, else ``ai-sdk-catalog.json``, else the legacy
+``llm-catalog.json``) and resolves the role/model from it, so the proxy never
+needs gateway details in ``litellm_params`` (sidestepping LiteLLM issue
+#18216).
 
 Upstream strategy (route 1 of the spec's §6.2)
 ----------------------------------------------
@@ -32,6 +33,7 @@ version stops honouring a custom client, the documented fallback — §6.2 route
 
 import json
 import os
+import warnings
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -60,8 +62,12 @@ __all__ = ["CONFIG_ENV_VAR", "ChatCatalogLLM"]
 # Environment variable naming the catalog config JSON (in-process & proxy).
 CONFIG_ENV_VAR = "LLM_CATALOG_CONFIG"
 
-# Default config location when CONFIG_ENV_VAR is unset.
-_DEFAULT_CONFIG_PATH = "llm-catalog.json"
+# Default config location when CONFIG_ENV_VAR is unset. The format is defined
+# by ai-sdk-catalog (TypeScript), so the file is named after the format.
+_DEFAULT_CONFIG_PATH = "ai-sdk-catalog.json"
+
+# Pre-0.6 default filename, still honoured as a deprecated fallback.
+_LEGACY_CONFIG_PATH = "llm-catalog.json"
 
 # catalog vendor -> LiteLLM built-in provider prefix used for the inner call.
 _VENDOR_TO_LITELLM: dict[str, str] = {
@@ -70,6 +76,26 @@ _VENDOR_TO_LITELLM: dict[str, str] = {
     "openai-compatible": "openai",
     "google": "gemini",
 }
+
+
+def _default_config_path() -> Path:
+    """Resolve the config path: env var > ``ai-sdk-catalog.json`` > legacy name."""
+    env = os.environ.get(CONFIG_ENV_VAR)
+    if env:
+        return Path(env)
+    default = Path(_DEFAULT_CONFIG_PATH)
+    legacy = Path(_LEGACY_CONFIG_PATH)
+    if not default.exists() and legacy.exists():
+        warnings.warn(
+            f'Falling back to the legacy "{_LEGACY_CONFIG_PATH}"; the default '
+            f'config filename is now "{_DEFAULT_CONFIG_PATH}" (named after the '
+            f"ai-sdk-catalog format it implements). Rename the file or set "
+            f"{CONFIG_ENV_VAR}.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return legacy
+    return default
 
 
 class ChatCatalogLLM(CustomLLM):
@@ -103,13 +129,13 @@ class ChatCatalogLLM(CustomLLM):
 
         This adapter is the deployment edge (the proxy points at a file via
         ``LLM_CATALOG_CONFIG``), so the file read lives here — core itself
-        never touches the filesystem.
+        never touches the filesystem. Without an explicit path the search
+        order is ``LLM_CATALOG_CONFIG``, then ``ai-sdk-catalog.json``, then
+        the legacy ``llm-catalog.json`` (with a :class:`DeprecationWarning`).
         """
         if self._catalog is None:
-            path = Path(
-                self._config_path
-                or os.environ.get(CONFIG_ENV_VAR)
-                or _DEFAULT_CONFIG_PATH
+            path = (
+                Path(self._config_path) if self._config_path else _default_config_path()
             )
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
