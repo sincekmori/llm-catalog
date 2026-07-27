@@ -15,7 +15,7 @@ from pathlib import Path
 
 from llm_catalog.core import Catalog
 
-config = json.loads(Path("llm-catalog.json").read_text(encoding="utf-8"))
+config = json.loads(Path("ai-sdk-catalog.json").read_text(encoding="utf-8"))
 cat = Catalog(config)
 rm = cat.resolve_role("fast")   # -> ResolvedModel (no adapter types)
 print(rm.kind, rm.vendor, rm.base_url)  # "gateway" or "direct"

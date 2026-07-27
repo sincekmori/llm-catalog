@@ -92,7 +92,7 @@ class PydanticAICatalog:
     accepts — the mapping you parsed from your config JSON, or a validated
     :class:`CatalogConfig`:
 
-        config = json.loads(Path("llm-catalog.json").read_text("utf-8"))
+        config = json.loads(Path("ai-sdk-catalog.json").read_text("utf-8"))
         cat = PydanticAICatalog(config)
 
     ``header_rewrite`` / ``body_rewrite`` are passed through to every

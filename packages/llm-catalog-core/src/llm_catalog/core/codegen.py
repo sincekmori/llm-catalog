@@ -193,7 +193,7 @@ def to_litellm_config(config: CatalogConfig) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     """Generate a LiteLLM proxy config from a catalog config (CLI entry point).
 
-    Usage: ``llm-catalog-codegen llm-catalog.json -o litellm.config.json``.
+    Usage: ``llm-catalog-codegen ai-sdk-catalog.json -o litellm.config.json``.
     """
     parser = argparse.ArgumentParser(
         prog="llm-catalog-codegen",

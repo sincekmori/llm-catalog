@@ -27,7 +27,7 @@ def test_schema_declares_dialect_and_closes_objects() -> None:
 def test_example_config_is_valid() -> None:
     # The shipped placeholder example must always validate.
     example = (
-        Path(__file__).resolve().parents[3] / "examples" / "llm-catalog.example.json"
+        Path(__file__).resolve().parents[3] / "examples" / "ai-sdk-catalog.example.json"
     )
     catalog = Catalog(json.loads(example.read_text(encoding="utf-8")))
     assert set(catalog.roles) == {"chat", "bulk", "fast", "reasoning", "search"}

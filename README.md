@@ -8,7 +8,7 @@
 [![ty](https://img.shields.io/badge/types-ty-261230)](https://github.com/astral-sh/ty)
 
 Drive multiple LLM runtimes from one declarative JSON config — implement nothing, configure once.
-It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `llm-catalog.json` drives TypeScript and Python alike (schema parity with ai-sdk-catalog 0.7).
+It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `ai-sdk-catalog.json` drives TypeScript and Python alike (schema parity with ai-sdk-catalog 0.7).
 You reference a **role** name (`fast`, `reasoning`, `search`, …) and it resolves to a concrete model — either a **direct** vendor endpoint (OpenAI, Anthropic, Google, any OpenAI-compatible server) or a model behind your own **gateway**.
 
 It targets two runtimes from the same config and the same core.
@@ -44,13 +44,15 @@ pip install llm-catalog-litellm       # LiteLLM plugin (pulls in core)
 pip install llm-catalog-core          # core only (config / resolve / codegen)
 ```
 
-## The config: `llm-catalog.json`
+## The config: `ai-sdk-catalog.json`
 
 The config format is **JSON**, shared verbatim with `ai-sdk-catalog` (0.7) — write one file and hand it to both runtimes.
+The default filename is `ai-sdk-catalog.json` because the format originates in — and its semantics are defined by — the TypeScript `ai-sdk-catalog` package; llm-catalog is a Python reader of that format, so the file is named after the format, not the reader (the same principle by which many tools read `tsconfig.json`).
+The former default `llm-catalog.json` still works as a deprecated fallback, searched after `LLM_CATALOG_CONFIG` and `ai-sdk-catalog.json`.
 A provider is either **direct** (its `vendor` — string shorthand or a block with `baseURL` / `apiKey` / `headers` / `query` — defaults to the provider `id`) or **gateway-routed** (a `gateway` block with free-form `backends`, each naming its `vendor`; every model then names its `backend` key).
 Roles point at a `(provider, model)` pair, written either as an object or as the `"provider:model"` shorthand.
 Secrets are a literal string only for local endpoints; otherwise `{"envVarName": "..."}` reads the environment lazily (a gateway with no `apiKey` falls back to `AI_GATEWAY_API_KEY`).
-See [`examples/llm-catalog.example.json`](examples/llm-catalog.example.json) for the full placeholder file.
+See [`examples/ai-sdk-catalog.example.json`](examples/ai-sdk-catalog.example.json) for the full placeholder file.
 
 ```json
 {
@@ -111,7 +113,7 @@ from pathlib import Path
 from pydantic_ai import Agent
 from llm_catalog.pydantic_ai import PydanticAICatalog
 
-config = json.loads(Path("llm-catalog.json").read_text(encoding="utf-8"))
+config = json.loads(Path("ai-sdk-catalog.json").read_text(encoding="utf-8"))
 cat = PydanticAICatalog(config)  # validates the config itself
 agent = Agent(cat.model_for_role("fast"))
 
@@ -130,7 +132,7 @@ Call `register()` once to wire the handler into LiteLLM, then use `litellm` as u
 ```python
 from llm_catalog.litellm import register
 
-register()   # reads llm-catalog.json (LLM_CATALOG_CONFIG or default path)
+register()   # reads ai-sdk-catalog.json (LLM_CATALOG_CONFIG or default path)
 
 import litellm
 
@@ -151,12 +153,12 @@ The system key lives in the proxy's env, and each user gets a **virtual key** to
 ```bash
 pip install llm-catalog-litellm
 export EXAMPLEGW_API_KEY=...                 # gateway system key
-export LLM_CATALOG_CONFIG=/path/llm-catalog.json
+export LLM_CATALOG_CONFIG=/path/ai-sdk-catalog.json
 export LITELLM_MASTER_KEY=...
 litellm --config litellm.proxy.example.yaml
 ```
 
-The handler resolves each model from `llm-catalog.json` itself, so the proxy config's `litellm_params` needs no gateway details (sidesteps LiteLLM #18216).
+The handler resolves each model from `ai-sdk-catalog.json` itself, so the proxy config's `litellm_params` needs no gateway details (sidesteps LiteLLM #18216).
 The proxy references `llm_catalog.litellm.handler` directly, so it does not call `register()`.
 
 ### Alternative: generate a native LiteLLM config (no plugin)
@@ -165,8 +167,8 @@ The proxy references `llm_catalog.litellm.handler` directly, so it does not call
 The output is JSON — a subset of YAML, so LiteLLM's config loader reads it directly.
 
 ```bash
-llm-catalog-codegen llm-catalog.json -o litellm.config.json
-# or: python -m llm_catalog.core.codegen llm-catalog.json -o litellm.config.json
+llm-catalog-codegen ai-sdk-catalog.json -o litellm.config.json
+# or: python -m llm_catalog.core.codegen ai-sdk-catalog.json -o litellm.config.json
 litellm --config litellm.config.json
 ```
 
@@ -176,8 +178,8 @@ Use the `llm-catalog-litellm` plugin when those matter.
 ## Public / private boundary (strict)
 
 This (public) repository ships generic code, placeholder examples, and mock tests only — no real base URLs, model ids, or capability values.
-Your real `llm-catalog.json` is private data, distributed inside your org, and is never committed here.
-Secrets (API keys) live only in env or a secret manager; `.gitignore` excludes `*.local.json`, `llm-catalog.json`, and `.env*`.
+Your real `ai-sdk-catalog.json` is private data, distributed inside your org, and is never committed here.
+Secrets (API keys) live only in env or a secret manager; `.gitignore` excludes `*.local.json`, `ai-sdk-catalog.json`, `llm-catalog.json`, and `.env*`.
 
 ## Verification notes (§9 — confirm against your real gateway)
 

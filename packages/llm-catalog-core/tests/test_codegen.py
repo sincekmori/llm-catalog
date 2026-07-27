@@ -129,7 +129,7 @@ def test_json_output_is_valid_yaml(config_dict: dict[str, Any]) -> None:
 
 
 def test_cli_writes_file(tmp_path: Path, config_dict: dict[str, Any]) -> None:
-    src = tmp_path / "llm-catalog.json"
+    src = tmp_path / "ai-sdk-catalog.json"
     src.write_text(json.dumps(config_dict), encoding="utf-8")
     dst = tmp_path / "litellm.config.json"
 
@@ -147,19 +147,19 @@ def test_cli_writes_file(tmp_path: Path, config_dict: dict[str, Any]) -> None:
 def test_cli_rejects_invalid_json(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    src = tmp_path / "llm-catalog.json"
+    src = tmp_path / "ai-sdk-catalog.json"
     src.write_text("providers: []", encoding="utf-8")  # YAML, not JSON
 
     rc = main([str(src)])
     assert rc == 1
-    assert "llm-catalog.json" in capsys.readouterr().err
+    assert "ai-sdk-catalog.json" in capsys.readouterr().err
 
 
 def test_cli_rejects_invalid_config(
     tmp_path: Path, config_dict: dict[str, Any], capsys: pytest.CaptureFixture[str]
 ) -> None:
     config_dict["roles"]["fast"]["model"] = "ghost"
-    src = tmp_path / "llm-catalog.json"
+    src = tmp_path / "ai-sdk-catalog.json"
     src.write_text(json.dumps(config_dict), encoding="utf-8")
 
     rc = main([str(src)])
