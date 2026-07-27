@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.5.0...llm-catalog-core-v0.5.1) (2026-07-27)
+
+
+### Documentation
+
+* rename config file references from llm-catalog.json to ai-sdk-catalog.json across READMEs, docstrings, examples, and test fixtures ([2e5c7b6](https://github.com/sincekmori/llm-catalog/commit/2e5c7b622163a0d28a2b94d3766906f19612e2f9))
+
 ## [0.5.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.4.0...llm-catalog-core-v0.5.0) (2026-07-15)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-litellm-v0.5.0...llm-catalog-litellm-v0.6.0) (2026-07-27)
+
+
+### Features
+
+* default the config filename to ai-sdk-catalog.json, keeping llm-catalog.json as a deprecated fallback after LLM_CATALOG_CONFIG ([c44b7a3](https://github.com/sincekmori/llm-catalog/commit/c44b7a35f6db68cd13782b71445321973cf9eaa1))
+
 ## [0.5.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-litellm-v0.4.0...llm-catalog-litellm-v0.5.0) (2026-07-15)
 
 
