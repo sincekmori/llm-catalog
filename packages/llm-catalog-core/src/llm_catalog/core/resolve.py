@@ -74,7 +74,8 @@ class ResolvedModel:
     query: dict[str, str] = field(default_factory=dict)
     settings: dict[str, Any] = field(default_factory=dict)
     capabilities: ModelCapabilities = field(default_factory=ModelCapabilities)
-    # declarative price sheet (USD per 1M tokens); None when the config has none
+    # declarative price sheet (USD per 1M tokens): the config's own, else the
+    # embedded models.dev sheet; None when neither knows the model.
     cost: ModelCost | None = None
 
     def api_key(self) -> str | None:

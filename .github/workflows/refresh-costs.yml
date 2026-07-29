@@ -1,0 +1,66 @@
+# Weekly refresh of the embedded models.dev price snapshot
+# (packages/llm-catalog-core/src/llm_catalog/core/costs_gen.py). Opens a PR
+# when prices changed; the fix-typed commit makes release-please ship the new
+# sheet as a llm-catalog-core patch release once merged. Note: PRs opened with
+# GITHUB_TOKEN don't trigger the CI workflow (the same limitation as the
+# release-please PR) — CI runs once more on merge to main.
+
+name: Refresh model costs
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC (12:00 JST)
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: refresh-costs
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the refresh branch
+      pull-requests: write # open the refresh PR
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Regenerate the cost snapshot
+        run: |
+          uv run python packages/llm-catalog-core/scripts/generate_costs.py
+          uv run ruff format packages/llm-catalog-core/src/llm_catalog/core/costs_gen.py
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet -- packages/llm-catalog-core/src/llm_catalog/core/costs_gen.py; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the refresh PR
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="chore/refresh-model-costs"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add packages/llm-catalog-core/src/llm_catalog/core/costs_gen.py
+          git commit -m "fix: refresh the embedded models.dev cost snapshot"
+          git push -fu origin "$branch"
+          if [ "$(gh pr list --head "$branch" --state open --json number --jq length)" = "0" ]; then
+            gh pr create \
+              --base main \
+              --head "$branch" \
+              --title "fix: refresh the embedded models.dev cost snapshot" \
+              --body "Weekly automated refresh of \`packages/llm-catalog-core/src/llm_catalog/core/costs_gen.py\` from https://models.dev/api.json. Review the price diff and merge; the fix-typed commit ships it as a llm-catalog-core patch release via release-please."
+          fi

@@ -32,6 +32,7 @@ from .config import (
     parse_role_ref,
     vendor_block_of,
 )
+from .costs import default_cost_of
 from .errors import ConfigError, ResolutionError
 from .resolve import ResolvedModel
 
@@ -131,6 +132,12 @@ class Catalog:
             _settings_dict(provider.settings), _settings_dict(model.settings)
         )
 
+        # An explicit config cost wins; otherwise the embedded models.dev
+        # sheet for the model's vendor and id (None when neither knows it).
+        cost = (
+            model.cost if model.cost is not None else default_cost_of(provider, model)
+        )
+
         if provider.gateway is not None:
             gateway = provider.gateway
             if model.backend is None:  # config validation guarantees it is set
@@ -159,7 +166,7 @@ class Catalog:
                 query={**(gateway.query or {}), **(backend.query or {})},
                 settings=settings,
                 capabilities=model.capabilities,
-                cost=model.cost,
+                cost=cost,
             )
 
         block = vendor_block_of(provider)
@@ -177,7 +184,7 @@ class Catalog:
             query=dict(block.query or {}) if block is not None else {},
             settings=settings,
             capabilities=model.capabilities,
-            cost=model.cost,
+            cost=cost,
         )
 
 

@@ -4,7 +4,7 @@
 
 This is the single source of truth for providers, the models they serve, and the
 roles an application references. It mirrors the TypeScript ``ai-sdk-catalog``
-(0.8) config so the *same* JSON file can drive both ecosystems: the camelCase
+(0.9) config so the *same* JSON file can drive both ecosystems: the camelCase
 keys (``baseURL``, ``envVarName``, ``pathTemplate``, ``actionMap``, ...) are
 accepted via Pydantic aliases, while ``populate_by_name`` also lets Python code
 build models with snake_case names.
@@ -180,10 +180,12 @@ class ModelCost(BaseModel):
     cache reads and writes are their own buckets — so with token counts kept
     in the same four buckets, a run's cost is the plain dot product:
     sum of ``tokens[bucket] * cost[bucket] / 1e6``. Every field is optional;
-    an absent bucket has no price (a fully absent ``cost`` reads as "unknown
-    or free" — local models simply omit it). This is declarative metadata:
-    nothing here computes with it, it is read back from the resolved model
-    for the app's own cost accounting.
+    an absent bucket has no price. A model that omits ``cost`` entirely gets
+    the embedded models.dev sheet for its vendor and id when one exists (see
+    :class:`ModelEntry`); a ``cost`` still absent after that reads as
+    "unknown or free" — local models simply have no sheet. This is
+    declarative metadata: nothing here computes with it, it is read back from
+    the resolved model for the app's own cost accounting.
     """
 
     model_config = _MODEL_CONFIG
@@ -229,10 +231,12 @@ class ModelEntry(BaseModel):
     server). ``backend``/``slug`` apply to gateway providers only (the
     ``gateway.backends`` key that serves the model, and the path segment when
     it differs from ``id``). ``cost`` is the model's price sheet (see
-    :class:`ModelCost`) — purely declarative metadata, read back from the
-    resolved model for the app's own cost accounting. The schema keeps every
-    field optional; :class:`CatalogConfig`'s validator enforces that the right
-    ones are present for the provider's kind.
+    :class:`ModelCost`) — declarative metadata, read back from the resolved
+    model for the app's own cost accounting. Omitted, it is filled from an
+    embedded models.dev snapshot when the model's vendor and id are known
+    there; an explicit ``cost`` always wins. The schema keeps every field
+    optional; :class:`CatalogConfig`'s validator enforces that the right ones
+    are present for the provider's kind.
     """
 
     model_config = _MODEL_CONFIG
