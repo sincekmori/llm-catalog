@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.6.0...llm-catalog-core-v0.7.0) (2026-07-29)
+
+
+### Features
+
+* fill a model's missing cost from an embedded models.dev price snapshot matched by vendor and model id, refreshed weekly by CI, with an explicit config cost always winning ([27a053e](https://github.com/sincekmori/llm-catalog/commit/27a053e6691f1e98e6ca1865b34bc16f64d10f02))
+
 ## [0.6.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.5.1...llm-catalog-core-v0.6.0) (2026-07-29)
 
 
