@@ -37,12 +37,43 @@ jobs:
       pull-requests: write
     outputs:
       paths_released: ${{ steps.release.outputs.paths_released }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # release-please bumps each package's pyproject.toml but knows nothing about
+  # uv, so uv.lock (which records the workspace members' own versions) would
+  # drift on every release and sneak into someone's next unrelated commit.
+  # Re-lock on the release PR branch itself so the PR ships consistent
+  # metadata; CI's `uv sync --locked` guards against drift landing anywhere
+  # else. Runs whenever release-please created or updated the PR, so it
+  # self-heals on every push to main while the PR is open.
+  sync-lockfile:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.pr }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+      - uses: astral-sh/setup-uv@v7
+      - run: uv lock
+      - name: Commit and push the synced lockfile
+        run: |
+          if git diff --quiet -- uv.lock; then
+            echo "uv.lock already in sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: sync uv.lock with the released package versions" -- uv.lock
+          git push
 
   # One publish job per package: PyPI pending publishers are unique per
   # (owner, repo, workflow, environment), so each package needs its own

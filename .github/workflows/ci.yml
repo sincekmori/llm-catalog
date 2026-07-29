@@ -23,7 +23,9 @@ jobs:
         with:
           enable-cache: true
       - run: uv python install 3.14
-      - run: uv sync --frozen
+      # --locked fails when uv.lock is out of sync with the pyprojects, so
+      # version-bump drift (e.g. from release-please) is caught immediately.
+      - run: uv sync --locked
       - name: Lint (ruff)
         run: uv run ruff check .
       - name: Format check (ruff)
@@ -45,7 +47,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv python install ${{ matrix.python }}
-      - run: uv sync --frozen --python ${{ matrix.python }}
+      - run: uv sync --locked --python ${{ matrix.python }}
       - name: Tests (mock only)
         run: uv run pytest
 
