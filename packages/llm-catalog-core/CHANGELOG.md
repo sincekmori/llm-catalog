@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.5.1...llm-catalog-core-v0.6.0) (2026-07-29)
+
+
+### Features
+
+* add the declarative per-model cost field (models.dev vocabulary, USD per 1M tokens) for schema parity with ai-sdk-catalog 0.8, exposed via ResolvedModel.cost ([2d95ebf](https://github.com/sincekmori/llm-catalog/commit/2d95ebf932a5d4ffb0004fcb8620a305ffea6f1d))
+
 ## [0.5.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.5.0...llm-catalog-core-v0.5.1) (2026-07-27)
 
 
