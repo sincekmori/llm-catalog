@@ -4,7 +4,7 @@
 
 This is the single source of truth for providers, the models they serve, and the
 roles an application references. It mirrors the TypeScript ``ai-sdk-catalog``
-(0.7) config so the *same* JSON file can drive both ecosystems: the camelCase
+(0.8) config so the *same* JSON file can drive both ecosystems: the camelCase
 keys (``baseURL``, ``envVarName``, ``pathTemplate``, ``actionMap``, ...) are
 accepted via Pydantic aliases, while ``populate_by_name`` also lets Python code
 build models with snake_case names.
@@ -58,6 +58,7 @@ __all__ = [
     "GatewayBackend",
     "HeaderValue",
     "ModelCapabilities",
+    "ModelCost",
     "ModelEntry",
     "ModelSettings",
     "Provider",
@@ -162,6 +163,41 @@ class ModelSettings(BaseModel):
         return self.model_dump(by_alias=True, exclude_none=True)
 
 
+# A sane price: nonnegative, and bounded above the most expensive model ever
+# listed on models.dev (a lone $600/1M legacy outlier), so a unit mix-up
+# (per 1K, per-token, cents) fails validation instead of silently inflating
+# every estimate. Mirrors ai-sdk-catalog's `Price` bound exactly.
+_Price = Annotated[float, Field(ge=0, le=1000)]
+
+
+class ModelCost(BaseModel):
+    """A model's price sheet, mirroring ai-sdk-catalog's ``ModelCost``.
+
+    Prices are in the billing buckets of models.dev (https://models.dev, the
+    community model database): **USD per 1 million tokens**, one price per
+    bucket, spelled in this config's own camelCase (models.dev writes
+    ``cache_read``/``cache_write``). ``input`` prices the *non-cached* input —
+    cache reads and writes are their own buckets — so with token counts kept
+    in the same four buckets, a run's cost is the plain dot product:
+    sum of ``tokens[bucket] * cost[bucket] / 1e6``. Every field is optional;
+    an absent bucket has no price (a fully absent ``cost`` reads as "unknown
+    or free" — local models simply omit it). This is declarative metadata:
+    nothing here computes with it, it is read back from the resolved model
+    for the app's own cost accounting.
+    """
+
+    model_config = _MODEL_CONFIG
+
+    input: _Price | None = None
+    output: _Price | None = None
+    cache_read: _Price | None = Field(default=None, alias="cacheRead")
+    cache_write: _Price | None = Field(default=None, alias="cacheWrite")
+
+    def as_dict(self) -> dict[str, float]:
+        """Return the prices in their camelCase (file) form, unset buckets dropped."""
+        return self.model_dump(by_alias=True, exclude_none=True)
+
+
 class ModelCapabilities(BaseModel):
     """Python-side capability hints, namespaced under ``capabilities:``.
 
@@ -192,9 +228,11 @@ class ModelEntry(BaseModel):
     default (Responses for OpenAI, Chat Completions for an OpenAI-compatible
     server). ``backend``/``slug`` apply to gateway providers only (the
     ``gateway.backends`` key that serves the model, and the path segment when
-    it differs from ``id``). The schema keeps every field optional;
-    :class:`CatalogConfig`'s validator enforces that the right ones are present
-    for the provider's kind.
+    it differs from ``id``). ``cost`` is the model's price sheet (see
+    :class:`ModelCost`) — purely declarative metadata, read back from the
+    resolved model for the app's own cost accounting. The schema keeps every
+    field optional; :class:`CatalogConfig`'s validator enforces that the right
+    ones are present for the provider's kind.
     """
 
     model_config = _MODEL_CONFIG
@@ -204,6 +242,7 @@ class ModelEntry(BaseModel):
     backend: _NonEmptyStr | None = None  # gateway providers only (backends key)
     slug: _NonEmptyStr | None = None  # gateway providers only (path override)
     settings: ModelSettings | None = None
+    cost: ModelCost | None = None  # USD per 1M tokens, models.dev vocabulary
     # Python-only extension; see ModelCapabilities.
     capabilities: ModelCapabilities = Field(default_factory=ModelCapabilities)
 

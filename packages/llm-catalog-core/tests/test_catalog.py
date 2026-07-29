@@ -51,6 +51,16 @@ def test_provider_options_merged_per_namespace(config_dict: dict[str, Any]) -> N
     }
 
 
+def test_cost_exposed_on_resolved_model(config_dict: dict[str, Any]) -> None:
+    # cost is declarative metadata: resolution passes it through untouched.
+    config_dict["providers"][0]["models"][0]["cost"] = {"input": 3, "output": 15}
+    cat = Catalog(config_dict)
+    rm = cat.resolve_role("reasoning")
+    assert rm.cost is not None
+    assert rm.cost.as_dict() == {"input": 3.0, "output": 15.0}
+    assert cat.resolve_role("fast").cost is None  # absent -> unknown or free
+
+
 def test_resolve_key(config_dict: dict[str, Any]) -> None:
     rm = Catalog(config_dict).resolve_key("examplegw:light-openai")
     assert rm.model_id == "light-openai"

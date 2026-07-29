@@ -9,7 +9,7 @@ literal `apiKey`).
 
 | File                                                         | What it shows                                                                                                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| [`ai-sdk-catalog.example.json`](ai-sdk-catalog.example.json) | The full placeholder catalog: direct providers (bare and with a vendor block), one gateway provider with three backends, per-model `capabilities`, and roles in both spellings. |
+| [`ai-sdk-catalog.example.json`](ai-sdk-catalog.example.json) | The full placeholder catalog: direct providers (bare and with a vendor block), one gateway provider with three backends, a per-model price sheet (`cost`), per-model `capabilities`, and roles in both spellings. |
 | [`litellm.proxy.example.yaml`](litellm.proxy.example.yaml)   | A LiteLLM **proxy** config referencing the `llm-catalog-litellm` plugin (LiteLLM's own file, hence YAML).                |
 
 The catalog config format is JSON, shared verbatim with

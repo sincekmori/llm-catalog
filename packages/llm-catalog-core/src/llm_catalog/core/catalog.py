@@ -159,6 +159,7 @@ class Catalog:
                 query={**(gateway.query or {}), **(backend.query or {})},
                 settings=settings,
                 capabilities=model.capabilities,
+                cost=model.cost,
             )
 
         block = vendor_block_of(provider)
@@ -176,6 +177,7 @@ class Catalog:
             query=dict(block.query or {}) if block is not None else {},
             settings=settings,
             capabilities=model.capabilities,
+            cost=model.cost,
         )
 
 

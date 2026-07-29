@@ -202,6 +202,33 @@ def test_unknown_settings_key_rejected(config_dict: dict[str, Any]) -> None:
         parse(config_dict)
 
 
+def test_cost_parsed_with_camelcase_buckets(config_dict: dict[str, Any]) -> None:
+    config_dict["providers"][0]["models"][0]["cost"] = {
+        "input": 1.25,
+        "output": 10,
+        "cacheRead": 0.125,
+    }
+    cost = parse(config_dict).providers[0].models[0].cost
+    assert cost is not None
+    assert cost.cache_read == 0.125  # camelCase alias -> snake_case attribute
+    assert cost.as_dict() == {"input": 1.25, "output": 10.0, "cacheRead": 0.125}
+
+
+def test_cost_rejects_impossible_prices(config_dict: dict[str, Any]) -> None:
+    # Mirrors ai-sdk-catalog: strict buckets, nonnegative, bounded at $1000/1M
+    # so a per-token or per-1K unit mix-up fails instead of inflating estimates.
+    model = config_dict["providers"][0]["models"][0]
+    model["cost"] = {"input": 1.25, "prompt": 1.25}  # not a billing bucket
+    with pytest.raises(ConfigError, match="prompt"):
+        parse(config_dict)
+    model["cost"] = {"output": -1}  # prices are nonnegative
+    with pytest.raises(ConfigError):
+        parse(config_dict)
+    model["cost"] = {"output": 1500}  # a per-1K unit mix-up
+    with pytest.raises(ConfigError):
+        parse(config_dict)
+
+
 def test_all_issues_reported_at_once(config_dict: dict[str, Any]) -> None:
     # Invariant violations are collected, not raised one at a time.
     config_dict["roles"]["fast"]["model"] = "ghost"

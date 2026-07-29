@@ -8,6 +8,12 @@
           "id": "claude-sonnet-5",
           "settings": {
             "temperature": 1
+          },
+          "cost": {
+            "input": 3,
+            "output": 15,
+            "cacheRead": 0.3,
+            "cacheWrite": 3.75
           }
         }
       ]

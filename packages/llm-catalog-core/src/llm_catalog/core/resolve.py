@@ -6,8 +6,8 @@ A :class:`ResolvedModel` is a flat, adapter-agnostic snapshot of everything
 needed to call one model: the kind (``direct`` or ``gateway``), the vendor it
 speaks, the addressing (backend key, slug, api), the endpoint (``base_url`` and
 — for a gateway — the path template), the key source, the merged transport
-extras (``headers``/``query``), the merged call settings, and the capability
-hints.
+extras (``headers``/``query``), the merged call settings, the capability
+hints, and the declarative price sheet (``cost``).
 
 It deliberately holds no Pydantic AI / LiteLLM types and no production secrets —
 keys and env-var-backed header values are read from the environment lazily, at
@@ -23,6 +23,7 @@ from .config import (
     EnvVarRef,
     HeaderValue,
     ModelCapabilities,
+    ModelCost,
 )
 from .errors import ResolutionError
 
@@ -73,6 +74,8 @@ class ResolvedModel:
     query: dict[str, str] = field(default_factory=dict)
     settings: dict[str, Any] = field(default_factory=dict)
     capabilities: ModelCapabilities = field(default_factory=ModelCapabilities)
+    # declarative price sheet (USD per 1M tokens); None when the config has none
+    cost: ModelCost | None = None
 
     def api_key(self) -> str | None:
         """Return the API key, lazily and per call.

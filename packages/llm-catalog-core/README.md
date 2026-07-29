@@ -1,7 +1,7 @@
 # llm-catalog-core
 
 Runtime-agnostic core for [llm-catalog](https://github.com/sincekmori/llm-catalog).
-It holds the config schema (shipped as `schema.json` for editor validation; parity with `ai-sdk-catalog` 0.7), validation, role resolution, the path-rewriting `GatewayTransport`, and native LiteLLM codegen.
+It holds the config schema (shipped as `schema.json` for editor validation; parity with `ai-sdk-catalog` 0.8), validation, role resolution, the path-rewriting `GatewayTransport`, and native LiteLLM codegen.
 
 This package knows nothing about any runtime adapter and never touches the filesystem, so installing it pulls in neither Pydantic AI nor LiteLLM.
 Use it directly when you only need resolution or codegen.
