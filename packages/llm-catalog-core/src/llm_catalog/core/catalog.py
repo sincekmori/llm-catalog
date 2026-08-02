@@ -17,7 +17,7 @@ never touches the filesystem:
     catalog = Catalog(config)
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import ValidationError
@@ -72,14 +72,34 @@ class Catalog:
     parsed from JSON (or built in code) and invalid input raises
     :class:`ConfigError` with a readable issue list. A ready
     :class:`CatalogConfig` passes through as-is.
+
+    ``required_roles`` names the roles the app depends on (mirroring
+    ai-sdk-catalog's ``requiredRoles``): construction raises
+    :class:`ConfigError` when the config's ``roles`` lack any of them, so a
+    missing assignment fails at startup instead of at the first lookup deep
+    inside the app. The config may define more roles than declared (for other
+    consumers of the same file). Omitted, lookups stay checked at resolve
+    time only.
     """
 
-    def __init__(self, config: CatalogConfig | Mapping[str, Any]) -> None:
+    def __init__(
+        self,
+        config: CatalogConfig | Mapping[str, Any],
+        *,
+        required_roles: Sequence[str] | None = None,
+    ) -> None:
         if not isinstance(config, CatalogConfig):
             try:
                 config = CatalogConfig.model_validate(dict(config))
             except ValidationError as exc:
                 raise ConfigError(format_validation_error(exc)) from exc
+        missing = [r for r in required_roles or [] if r not in config.roles]
+        if missing:
+            raise ConfigError(
+                "Config roles are missing "
+                + ", ".join(f'"{role}"' for role in missing)
+                + ' required by Catalog\'s "required_roles".'
+            )
         self._config = config
         self._providers: dict[str, Provider] = {p.id: p for p in config.providers}
 

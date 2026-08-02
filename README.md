@@ -8,7 +8,7 @@
 [![ty](https://img.shields.io/badge/types-ty-261230)](https://github.com/astral-sh/ty)
 
 Drive multiple LLM runtimes from one declarative JSON config — implement nothing, configure once.
-It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `ai-sdk-catalog.json` drives TypeScript and Python alike (schema parity with ai-sdk-catalog 0.9).
+It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `ai-sdk-catalog.json` drives TypeScript and Python alike (schema parity with ai-sdk-catalog 0.10).
 You reference a **role** name (`fast`, `reasoning`, `search`, …) and it resolves to a concrete model — either a **direct** vendor endpoint (OpenAI, Anthropic, Google, any OpenAI-compatible server) or a model behind your own **gateway**.
 
 It targets two runtimes from the same config and the same core.
@@ -46,16 +46,17 @@ pip install llm-catalog-core          # core only (config / resolve / codegen)
 
 ## The config: `ai-sdk-catalog.json`
 
-The config format is **JSON**, shared verbatim with `ai-sdk-catalog` (0.9) — write one file and hand it to both runtimes.
+The config format is **JSON**, shared verbatim with `ai-sdk-catalog` (0.10) — write one file and hand it to both runtimes.
 The default filename is `ai-sdk-catalog.json` because the format originates in — and its semantics are defined by — the TypeScript `ai-sdk-catalog` package; llm-catalog is a Python reader of that format, so the file is named after the format, not the reader (the same principle by which many tools read `tsconfig.json`).
 The former default `llm-catalog.json` still works as a deprecated fallback, searched after `LLM_CATALOG_CONFIG` and `ai-sdk-catalog.json`.
 A provider is either **direct** (its `vendor` — string shorthand or a block with `baseURL` / `apiKey` / `headers` / `query` — defaults to the provider `id`) or **gateway-routed** (a `gateway` block with free-form `backends`, each naming its `vendor`; every model then names its `backend` key).
 Roles point at a `(provider, model)` pair, written either as an object or as the `"provider:model"` shorthand.
 Secrets are a literal string only for local endpoints; otherwise `{"envVarName": "..."}` reads the environment lazily (a gateway with no `apiKey` falls back to `AI_GATEWAY_API_KEY`).
-A model may declare its price sheet in a `cost` block, in the billing buckets of [models.dev](https://models.dev) — USD per 1 million tokens: `input` (non-cached), `output`, `cacheRead`, `cacheWrite`; a price above $1,000/1M (a per-token or per-1K unit mix-up) fails validation.
-The catalog never computes with `cost` — it is declarative metadata read back from the resolved model (`ResolvedModel.cost`) for your own cost accounting, so a run's cost is the plain dot product over the same four token buckets.
-Omit `cost` and the catalog fills it in: `llm-catalog-core` embeds a snapshot of the models.dev price sheets for every bundled vendor, matched by the model's vendor (a direct provider's vendor, or the backend's vendor for a gateway model) and exact model id — an explicit `cost` always wins.
+Every model's resolved metadata carries a price sheet (`ResolvedModel.cost`), in the billing buckets of [models.dev](https://models.dev) — USD per 1 million tokens: `input` (non-cached), `output`, `cacheRead`, `cacheWrite`.
+You rarely write it: `llm-catalog-core` embeds a snapshot of the models.dev price sheets for every bundled vendor, matched by the model's vendor (a direct provider's vendor, or the backend's vendor for a gateway model) and exact model id; write a `cost` block only to pin or correct a price — an explicit value always wins, and a price above $1,000/1M (a per-token or per-1K unit mix-up) fails validation.
+The catalog never computes with `cost` — read it back for your own cost accounting; a run's cost is the plain dot product over the same four token buckets.
 No sheet exists for the `openai-compatible` vendor (a protocol, not an upstream) or for ids models.dev does not list — there `cost` simply stays absent; the snapshot is refreshed weekly by CI, so pin prices in the config where exactness matters.
+Declare the roles your app depends on with `Catalog(config, required_roles=[...])` (mirroring ai-sdk-catalog's `requiredRoles`) and construction fails when the config misses any of them — at startup, instead of at the first lookup deep inside the app.
 See [`examples/ai-sdk-catalog.example.json`](examples/ai-sdk-catalog.example.json) for the full placeholder file.
 
 ```json
@@ -67,7 +68,7 @@ See [`examples/ai-sdk-catalog.example.json`](examples/ai-sdk-catalog.example.jso
       "models": [
         {
           "id": "claude-sonnet-5",
-          "cost": { "input": 3, "output": 15, "cacheRead": 0.3, "cacheWrite": 3.75 }
+          "cost": { "input": 2, "output": 10, "cacheRead": 0.2, "cacheWrite": 2.5 }
         }
       ]
     },

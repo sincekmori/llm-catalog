@@ -4,7 +4,7 @@
 
 This is the single source of truth for providers, the models they serve, and the
 roles an application references. It mirrors the TypeScript ``ai-sdk-catalog``
-(0.9) config so the *same* JSON file can drive both ecosystems: the camelCase
+(0.10) config so the *same* JSON file can drive both ecosystems: the camelCase
 keys (``baseURL``, ``envVarName``, ``pathTemplate``, ``actionMap``, ...) are
 accepted via Pydantic aliases, while ``populate_by_name`` also lets Python code
 build models with snake_case names.

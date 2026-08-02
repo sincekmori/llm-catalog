@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from llm_catalog.core import Catalog, ResolutionError
+from llm_catalog.core import Catalog, ConfigError, ResolutionError
 
 
 def test_resolve_gateway_role(config_dict: dict[str, Any]) -> None:
@@ -49,6 +49,22 @@ def test_provider_options_merged_per_namespace(config_dict: dict[str, Any]) -> N
         "reasoningEffort": "high",
         "parallelToolCalls": False,
     }
+
+
+def test_required_roles_raises_listing_every_missing_role(
+    config_dict: dict[str, Any],
+) -> None:
+    # Mirrors ai-sdk-catalog's requiredRoles: fail at startup, not first lookup.
+    with pytest.raises(ConfigError, match='"default", "fallback"'):
+        Catalog(config_dict, required_roles=["fast", "default", "fallback"])
+
+
+def test_required_roles_builds_when_every_role_is_assigned(
+    config_dict: dict[str, Any],
+) -> None:
+    cat = Catalog(config_dict, required_roles=["fast", "reasoning"])
+    # The config may define more roles than declared; lookups are unchanged.
+    assert cat.resolve_role("search").vendor == "google"
 
 
 def test_cost_exposed_on_resolved_model(config_dict: dict[str, Any]) -> None:
