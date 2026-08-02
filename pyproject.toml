@@ -27,8 +27,8 @@ llm-catalog-core = { workspace = true }
 # --upgrade` so checks run against the latest dev libraries.
 [dependency-groups]
 dev = [
-    "ruff>=0.15",
-    "ty>=0.0.56",
+    "ruff>=0.16.0",
+    "ty>=0.0.65",
     "pytest>=9",
     "pytest-asyncio>=1.2",
     "respx>=0.23",
