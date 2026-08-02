@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.7.0...llm-catalog-core-v0.8.0) (2026-08-02)
+
+
+### Features
+
+* add a required_roles option to Catalog that fails construction on missing role assignments, for parity with ai-sdk-catalog 0.10 ([69d296a](https://github.com/sincekmori/llm-catalog/commit/69d296a150cd2723eddd3e4ad8688d2b0880e558))
+
 ## [0.7.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.6.0...llm-catalog-core-v0.7.0) (2026-07-29)
 
 
