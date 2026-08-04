@@ -142,7 +142,7 @@ Call `register()` once to wire the handler into LiteLLM, then use `litellm` as u
 ```python
 from llm_catalog.litellm import register
 
-register()   # reads ai-sdk-catalog.json (LLM_CATALOG_CONFIG or default path)
+register()  # reads ai-sdk-catalog.json (LLM_CATALOG_CONFIG or default path)
 
 import litellm
 

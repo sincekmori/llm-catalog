@@ -27,8 +27,8 @@ llm-catalog-core = { workspace = true }
 # --upgrade` so checks run against the latest dev libraries.
 [dependency-groups]
 dev = [
-    "ruff>=0.15",
-    "ty>=0.0.56",
+    "ruff>=0.16.0",
+    "ty>=0.0.65",
     "pytest>=9",
     "pytest-asyncio>=1.2",
     "respx>=0.23",
@@ -85,6 +85,7 @@ known-first-party = ["llm_catalog"]
 "packages/llm-catalog-litellm/src/llm_catalog/litellm/custom_llm.py" = [
     "ARG002",  # unused method arguments dictated by the base class
     "PLR0913", # too many arguments dictated by the base class
+    "PLR0917", # ... and they are positional in the base's calling convention
     "D102",    # methods documented via the base class / module docstring
     "PLR0911", # backend dispatch naturally has several returns
     "C901",    # the dispatch is simple despite the metric
@@ -94,6 +95,7 @@ known-first-party = ["llm_catalog"]
 "packages/llm-catalog-core/src/llm_catalog/core/transport.py" = [
     "PLR0911", # extraction returns once per backend shape
     "PLR0913", # transports take the full gateway config as arguments
+    "PLR0917", # keeping them positional-friendly matches httpx transport style
 ]
 # The whole-config validation naturally branches over every invariant.
 "packages/llm-catalog-core/src/llm_catalog/core/config.py" = ["C901", "PLR0912"]
