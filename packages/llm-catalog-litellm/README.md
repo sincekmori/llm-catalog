@@ -8,7 +8,7 @@ For in-process use, call `register()` once to wire the handler into LiteLLM.
 ```python
 from llm_catalog.litellm import register
 
-register()   # reads ai-sdk-catalog.json (LLM_CATALOG_CONFIG or default path)
+register()  # reads ai-sdk-catalog.json (LLM_CATALOG_CONFIG or default path)
 
 import litellm
 

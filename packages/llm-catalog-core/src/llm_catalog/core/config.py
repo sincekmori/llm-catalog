@@ -454,8 +454,10 @@ def _provider_kind_issues(provider: Provider) -> list[str]:
     if provider.gateway is not None:
         if provider.vendor is not None:
             return [
-                f'Provider "{provider.id}" sets both "vendor" and "gateway"; '
-                "a provider is either direct or gateway-routed."
+                (
+                    f'Provider "{provider.id}" sets both "vendor" and "gateway"; '
+                    "a provider is either direct or gateway-routed."
+                )
             ]
         return []
 
@@ -514,14 +516,18 @@ def _model_kind_issues(provider: Provider, model: ModelEntry) -> list[str]:
     if provider.gateway is not None:
         if model.backend is None:
             return [
-                f'Model "{model.id}" in gateway provider "{provider.id}" must '
-                'set a "backend".'
+                (
+                    f'Model "{model.id}" in gateway provider "{provider.id}" must '
+                    'set a "backend".'
+                )
             ]
         if model.backend not in provider.gateway.backends:
             return [
-                f'Model "{model.id}" uses backend "{model.backend}", but '
-                f'"{provider.id}.gateway.backends.{model.backend}" is not '
-                "configured."
+                (
+                    f'Model "{model.id}" uses backend "{model.backend}", but '
+                    f'"{provider.id}.gateway.backends.{model.backend}" is not '
+                    "configured."
+                )
             ]
         return []
 
