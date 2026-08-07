@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-pydantic-ai-v0.5.1...llm-catalog-pydantic-ai-v0.5.2) (2026-08-07)
+
+
+### Bug Fixes
+
+* constrain llm-catalog-core to &gt;=0.8.1,&lt;0.9 in both adapters so published wheels resolve a core that exports BodyRewrite instead of the incompatible 0.3 line ([215032a](https://github.com/sincekmori/llm-catalog/commit/215032a366c1579d3b85f8d49a97f28119778fa9))
+
 ## [0.5.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-pydantic-ai-v0.5.0...llm-catalog-pydantic-ai-v0.5.1) (2026-07-27)
 
 
