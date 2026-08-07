@@ -21,7 +21,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "llm-catalog-core>=0.3,<0.4",
+    # Pre-1.0 core treats minor bumps as breaking, so pin to the minor line the
+    # adapter is developed and tested against.
+    "llm-catalog-core>=0.8.1,<0.9",
     # The adapter targets the Pydantic AI 2.x API (NativeOutput / OpenAIChatModel
     # / native_tools, ...); it does not work on the old 0.x line.
     "pydantic-ai>=2.0",

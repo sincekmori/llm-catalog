@@ -21,7 +21,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "llm-catalog-core>=0.3,<0.4",
+    # Pre-1.0 core treats minor bumps as breaking, so pin to the minor line the
+    # adapter is developed and tested against.
+    "llm-catalog-core>=0.8.1,<0.9",
     # Floor at the verified version (also past the 1.82.7/1.82.8 supply-chain incident).
     "litellm>=1.90.0",
     "httpx>=0.27",
