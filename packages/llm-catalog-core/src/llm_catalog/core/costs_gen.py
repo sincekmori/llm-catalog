@@ -34,18 +34,6 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
             "cacheRead": 0.1,
             "cacheWrite": 1.25,
         },
-        "claude-opus-4-1": {
-            "input": 15,
-            "output": 75,
-            "cacheRead": 1.5,
-            "cacheWrite": 18.75,
-        },
-        "claude-opus-4-1-20250805": {
-            "input": 15,
-            "output": 75,
-            "cacheRead": 1.5,
-            "cacheWrite": 18.75,
-        },
         "claude-opus-4-5": {
             "input": 5,
             "output": 25,
@@ -207,15 +195,15 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "north-mini-code-1-0": {"input": 0, "output": 0},
     },
     "groq": {
+        "allam-2-7b": {"input": 0, "output": 0},
         "llama-3.1-8b-instant": {"input": 0.05, "output": 0.08},
         "llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79},
-        "meta-llama/llama-4-scout-17b-16e-instruct": {"input": 0.11, "output": 0.34},
         "meta-llama/llama-prompt-guard-2-22m": {"input": 0.03, "output": 0.03},
         "meta-llama/llama-prompt-guard-2-86m": {"input": 0.04, "output": 0.04},
         "openai/gpt-oss-120b": {"input": 0.15, "output": 0.6, "cacheRead": 0.075},
         "openai/gpt-oss-20b": {"input": 0.075, "output": 0.3, "cacheRead": 0.0375},
         "openai/gpt-oss-safeguard-20b": {"input": 0.075, "output": 0.3},
-        "qwen/qwen3-32b": {"input": 0.29, "output": 0.59},
+        "qwen/qwen3.6-27b": {"input": 0.6, "output": 3, "cacheRead": 0.3},
     },
     "xai": {
         "grok-4.20-0309-non-reasoning": {
