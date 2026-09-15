@@ -22,6 +22,12 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
             "cacheRead": 1,
             "cacheWrite": 12.5,
         },
+        "claude-fable-5-1": {
+            "input": 10,
+            "output": 50,
+            "cacheRead": 0.25,
+            "cacheWrite": 12.5,
+        },
         "claude-haiku-4-5": {
             "input": 1,
             "output": 5,
@@ -138,6 +144,7 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
             "cacheRead": 0.2,
             "cacheWrite": 2.5,
         },
+        "gpt-6-astra": {"input": 10, "output": 50, "cacheRead": 1, "cacheWrite": 12.5},
         "gpt-realtime-2.1": {"input": 4, "output": 24, "cacheRead": 0.4},
         "o1": {"input": 15, "output": 60, "cacheRead": 7.5},
         "o1-pro": {"input": 150, "output": 600},
@@ -205,6 +212,7 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "openai/gpt-oss-20b": {"input": 0.075, "output": 0.3, "cacheRead": 0.0375},
         "openai/gpt-oss-safeguard-20b": {"input": 0.075, "output": 0.3},
         "qwen/qwen3.6-27b": {"input": 0.6, "output": 3, "cacheRead": 0.3},
+        "qwen/qwen3.8-27b": {"input": 0.8, "output": 4},
     },
     "xai": {
         "grok-4.20-0309-non-reasoning": {
@@ -220,11 +228,12 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "grok-build-0.1": {"input": 1, "output": 2, "cacheRead": 0.2},
     },
     "deepseek": {
-        "deepseek-v4-flash": {"input": 0.14, "output": 0.28, "cacheRead": 0.0028},
+        "deepseek-flash": {"input": 0.15, "output": 0.6, "cacheRead": 0.003},
+        "deepseek-v4-flash": {"input": 0.15, "output": 0.6, "cacheRead": 0.003},
         "deepseek-v4-flash-vision-exp": {
-            "input": 0.14,
-            "output": 0.28,
-            "cacheRead": 0.0028,
+            "input": 0.15,
+            "output": 0.6,
+            "cacheRead": 0.003,
         },
         "deepseek-v4-pro": {"input": 0.435, "output": 0.87, "cacheRead": 0.003625},
     },
@@ -270,11 +279,11 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "gemini-3.5-live-translate-preview": {"input": 3.5, "output": 21},
         "gemini-3.6-flash": {"input": 0.75, "output": 3.75, "cacheRead": 0.075},
         "gemini-3.7-flash": {"input": 0.75, "output": 3.75, "cacheRead": 0.075},
+        "gemini-3.8-flash": {"input": 0.75, "output": 3.75, "cacheRead": 0.075},
         "gemini-embedding-001": {"input": 0.15, "output": 0},
         "gemini-embedding-2": {"input": 0.2, "output": 0},
         "gemini-flash-latest": {"input": 0.75, "output": 3.75, "cacheRead": 0.075},
         "gemini-flash-lite-latest": {"input": 0.3, "output": 2.5, "cacheRead": 0.03},
-        "gemini-robotics-er-1.6-preview": {"input": 1, "output": 5},
         "lyria-3-clip-preview": {"input": 0, "output": 0},
         "lyria-3-pro-preview": {"input": 0, "output": 0},
     },
