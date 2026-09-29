@@ -4,6 +4,11 @@
 # sheet as a llm-catalog-core patch release once merged. Note: PRs opened with
 # GITHUB_TOKEN don't trigger the CI workflow (the same limitation as the
 # release-please PR) — CI runs once more on merge to main.
+#
+# The PR title is deliberately NOT a Conventional Commit. GitHub copies the PR
+# title into the merge commit's body, and release-please parses a
+# "<blank line>fix: ..." body as a commit of its own, so a conventional title
+# lists the same change twice in the CHANGELOG (merge commit + real commit).
 
 name: Refresh model costs
 
@@ -61,6 +66,6 @@ jobs:
             gh pr create \
               --base main \
               --head "$branch" \
-              --title "fix: refresh the embedded models.dev cost snapshot" \
+              --title "Refresh the embedded models.dev cost snapshot" \
               --body "Weekly automated refresh of \`packages/llm-catalog-core/src/llm_catalog/core/costs_gen.py\` from https://models.dev/api.json. Review the price diff and merge; the fix-typed commit ships it as a llm-catalog-core patch release via release-please."
           fi

@@ -5,7 +5,6 @@
 
 ### Bug Fixes
 
-* refresh the embedded models.dev cost snapshot ([baede78](https://github.com/sincekmori/llm-catalog/commit/baede78f4f9ad22bc0ad9bb612d9f6a04c766f65))
 * refresh the embedded models.dev cost snapshot ([8d20810](https://github.com/sincekmori/llm-catalog/commit/8d2081049a4aa20134127f02637937419004b1f6))
 
 ## [0.8.7](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.8.6...llm-catalog-core-v0.8.7) (2026-09-22)
@@ -13,7 +12,6 @@
 
 ### Bug Fixes
 
-* refresh the embedded models.dev cost snapshot ([c9bb1bf](https://github.com/sincekmori/llm-catalog/commit/c9bb1bf4ac7f123f5ad8092baeec74b3025ec1ca))
 * refresh the embedded models.dev cost snapshot ([e62b22e](https://github.com/sincekmori/llm-catalog/commit/e62b22e820bce4cbaf250e09f3e57e1adb7cf6c1))
 
 ## [0.8.6](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.8.5...llm-catalog-core-v0.8.6) (2026-09-15)
@@ -21,7 +19,6 @@
 
 ### Bug Fixes
 
-* refresh the embedded models.dev cost snapshot ([584a58a](https://github.com/sincekmori/llm-catalog/commit/584a58ad8682971b53628fd92a7c0391230d8916))
 * refresh the embedded models.dev cost snapshot ([ce066a7](https://github.com/sincekmori/llm-catalog/commit/ce066a78a1735845bf21f2dc2856f4c67985b017))
 
 ## [0.8.5](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.8.4...llm-catalog-core-v0.8.5) (2026-08-31)
@@ -29,7 +26,6 @@
 
 ### Bug Fixes
 
-* refresh the embedded models.dev cost snapshot ([7339f5e](https://github.com/sincekmori/llm-catalog/commit/7339f5edb2f9d804f997a7faca8bc837b2827d5d))
 * refresh the embedded models.dev cost snapshot ([87dd173](https://github.com/sincekmori/llm-catalog/commit/87dd17386719cf0ee81b0af98c9e311d938c3887))
 
 ## [0.8.4](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.8.3...llm-catalog-core-v0.8.4) (2026-08-25)
@@ -37,7 +33,6 @@
 
 ### Bug Fixes
 
-* refresh the embedded models.dev cost snapshot ([d597bc3](https://github.com/sincekmori/llm-catalog/commit/d597bc3492a2a79428c4cdb2832e89ea3709df88))
 * refresh the embedded models.dev cost snapshot ([b86b752](https://github.com/sincekmori/llm-catalog/commit/b86b752ddea99b69e77c8d093c84fbc3fdaaf067))
 
 ## [0.8.3](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.8.2...llm-catalog-core-v0.8.3) (2026-08-20)
@@ -45,7 +40,6 @@
 
 ### Bug Fixes
 
-* refresh the embedded models.dev cost snapshot ([e08c738](https://github.com/sincekmori/llm-catalog/commit/e08c7388092670e42ad68a5fd38e0c964d1be33c))
 * refresh the embedded models.dev cost snapshot ([1019e68](https://github.com/sincekmori/llm-catalog/commit/1019e68024f6c46f4596b8db3aee9d5f6aa315b8))
 
 ## [0.8.2](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.8.1...llm-catalog-core-v0.8.2) (2026-08-11)
@@ -53,7 +47,6 @@
 
 ### Bug Fixes
 
-* refresh the embedded models.dev cost snapshot ([35c0b1d](https://github.com/sincekmori/llm-catalog/commit/35c0b1d8170ebc83b1ded5f0a7d2724f3783c644))
 * refresh the embedded models.dev cost snapshot ([3fda9e1](https://github.com/sincekmori/llm-catalog/commit/3fda9e10adaa3d139cf63cc5af3639a4b923f297))
 
 ## [0.8.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.8.0...llm-catalog-core-v0.8.1) (2026-08-02)
