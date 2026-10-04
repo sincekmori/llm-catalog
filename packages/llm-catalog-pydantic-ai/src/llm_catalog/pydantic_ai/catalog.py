@@ -18,7 +18,8 @@ client outright.
 """
 
 from collections.abc import Callable, Mapping
-from typing import Any, cast
+from types import TracebackType
+from typing import Any, Self, cast
 
 import httpx2
 
@@ -92,7 +93,13 @@ class PydanticAICatalog:
     :class:`CatalogConfig`:
 
         config = json.loads(Path("ai-sdk-catalog.json").read_text("utf-8"))
-        cat = PydanticAICatalog(config)
+        async with PydanticAICatalog(config) as cat:
+            agent = Agent(cat.model_for_role("fast"))
+            ...
+
+    Each model owns one ``httpx2`` client; models are built once and reused
+    (so repeated lookups share a connection pool), and :meth:`aclose` (or the
+    ``async with`` form) closes every client this catalog opened.
 
     ``header_rewrite`` / ``body_rewrite`` are passed through to every
     :class:`~llm_catalog.core.transport2.GatewayTransport` this catalog builds
@@ -119,6 +126,8 @@ class PydanticAICatalog:
         self._header_rewrite = header_rewrite
         self._body_rewrite = body_rewrite
         self._transport_factory = transport_factory or httpx2.AsyncHTTPTransport
+        self._models: dict[str, Model] = {}
+        self._clients: list[httpx2.AsyncClient] = []
 
     @property
     def catalog(self) -> Catalog:
@@ -126,12 +135,32 @@ class PydanticAICatalog:
         return self._catalog
 
     def model_for_role(self, role: str) -> Model:
-        """Build a native Pydantic AI ``Model`` for a role."""
-        return self._build(self._catalog.resolve_role(role))
+        """Return the native Pydantic AI ``Model`` for a role."""
+        return self._model(self._catalog.resolve_role(role))
 
     def model(self, key: str) -> Model:
-        """Build a native Pydantic AI ``Model`` for a ``provider:model_id`` key."""
-        return self._build(self._catalog.resolve_key(key))
+        """Return the native Pydantic AI ``Model`` for a ``provider:model_id`` key."""
+        return self._model(self._catalog.resolve_key(key))
+
+    async def aclose(self) -> None:
+        """Close every HTTP client this catalog opened and forget its models."""
+        clients, self._clients = self._clients, []
+        self._models.clear()
+        for client in clients:
+            await client.aclose()
+
+    async def __aenter__(self) -> Self:
+        """Enter the context; the catalog is usable without it too."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Close the HTTP clients on exit."""
+        await self.aclose()
 
     def output_for(
         self, role: str, schema: Any
@@ -161,6 +190,12 @@ class PydanticAICatalog:
                 )
             tools.append(factory())
         return tools
+
+    def _model(self, rm: ResolvedModel) -> Model:
+        model = self._models.get(rm.key)
+        if model is None:
+            model = self._models[rm.key] = self._build(rm)
+        return model
 
     def _build(self, rm: ResolvedModel) -> Model:
         settings = _to_model_settings(rm.settings)
@@ -192,7 +227,9 @@ class PydanticAICatalog:
             header_rewrite=self._header_rewrite,
             body_rewrite=self._body_rewrite,
         )
-        return httpx2.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
+        self._clients.append(client)
+        return client
 
     def _provider_kwargs(self, rm: ResolvedModel) -> dict[str, Any]:
         """Build the common Pydantic AI provider kwargs.
@@ -202,12 +239,14 @@ class PydanticAICatalog:
         var — e.g. ``OPENAI_API_KEY``). For a gateway model both are always
         present (the key defaults to ``AI_GATEWAY_API_KEY``).
         """
-        kwargs: dict[str, Any] = {"http_client": self._client(rm)}
+        kwargs: dict[str, Any] = {}
         if rm.base_url is not None:
             kwargs["base_url"] = rm.base_url
         api_key = rm.api_key()
         if api_key is not None:
             kwargs["api_key"] = api_key
+        # Opened last: a missing key env var must not leave a client behind.
+        kwargs["http_client"] = self._client(rm)
         return kwargs
 
     def _anthropic(

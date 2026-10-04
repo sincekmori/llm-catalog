@@ -143,6 +143,10 @@ agent = Agent(cat.model_for_role("fast"))
 out = cat.output_for("reasoning", MySchema)
 # grounding tools mapped from capabilities.grounding
 tools = cat.grounding_tools("search")
+
+await (
+    cat.aclose()
+)  # close the HTTP clients (or use `async with PydanticAICatalog(...)`)
 ```
 
 This environment never installs `litellm`.

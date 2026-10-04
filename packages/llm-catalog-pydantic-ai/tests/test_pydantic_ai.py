@@ -104,6 +104,39 @@ def test_openai_compatible_responses_raises(config_dict: dict) -> None:
         pac.model_for_role("bulk")
 
 
+# --- client lifecycle ---------------------------------------------------------
+
+
+async def test_models_are_reused_and_clients_closed(config_dict: dict, wire) -> None:
+    pac = PydanticAICatalog(config_dict, transport_factory=wire.transport)
+    first = pac.model_for_role("fast")
+    assert pac.model("examplegw:light-openai") is first  # one client per model
+    pac.model_for_role("reasoning")
+    clients = list(pac._clients)
+    assert len(clients) == 2
+    await pac.aclose()
+    assert all(client.is_closed for client in clients)
+    assert pac._clients == []
+    # usable again after closing: models are rebuilt on demand
+    assert pac.model_for_role("fast") is not first
+    await pac.aclose()
+
+
+async def test_async_with_closes_clients(config_dict: dict, wire) -> None:
+    async with PydanticAICatalog(config_dict, transport_factory=wire.transport) as pac:
+        pac.model_for_role("reasoning")
+        (client,) = pac._clients
+    assert client.is_closed
+
+
+def test_failed_build_opens_no_client(config_dict: dict) -> None:
+    config_dict["providers"][0]["models"][1]["api"] = "completion"
+    pac = PydanticAICatalog(config_dict)
+    with pytest.raises(LLMCatalogError):
+        pac.model_for_role("fast")
+    assert pac._clients == []
+
+
 # --- output modes -----------------------------------------------------------
 
 

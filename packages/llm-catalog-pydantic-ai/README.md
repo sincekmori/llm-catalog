@@ -15,6 +15,9 @@ cat = PydanticAICatalog(config)  # validates the config itself
 agent = Agent(cat.model_for_role("fast"))
 ```
 
+Each model is built once and reused, with its own HTTP client, so repeated `model_for_role()` calls share a connection pool.
+Close the clients with `await cat.aclose()` when you are done, or use the catalog as `async with PydanticAICatalog(config) as cat:`.
+
 Installing this package does not pull in `litellm`.
 The distributions are deliberately split so a Pydantic AI user's lockfile never references it.
 
