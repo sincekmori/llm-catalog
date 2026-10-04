@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-pydantic-ai-v0.5.2...llm-catalog-pydantic-ai-v0.6.0) (2026-10-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* add the llm-catalog-ai-sdk adapter for the AI SDK for Python, move to httpx2 with a second GatewayTransport flavour that fixes Anthropic models in the Pydantic AI adapter, reach schema parity with ai-sdk-catalog 0.13, require Python 3.12+, and split llm-catalog-litellm into its own uv project
+
+### Features
+
+* add the llm-catalog-ai-sdk adapter for the AI SDK for Python, move to httpx2 with a second GatewayTransport flavour that fixes Anthropic models in the Pydantic AI adapter, reach schema parity with ai-sdk-catalog 0.13, require Python 3.12+, and split llm-catalog-litellm into its own uv project ([f07e226](https://github.com/sincekmori/llm-catalog/commit/f07e22674cb1cced755d3a859b4fb810b355a1fc))
+* **pydantic-ai:** build each model once and reuse it so repeated lookups share a connection pool, and add aclose() and async-with support to close the HTTP clients the catalog opened ([09b4943](https://github.com/sincekmori/llm-catalog/commit/09b49430aa46d555ed88735e803edf9d2a0ae6d6))
+
 ## [0.5.2](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-pydantic-ai-v0.5.1...llm-catalog-pydantic-ai-v0.5.2) (2026-08-07)
 
 

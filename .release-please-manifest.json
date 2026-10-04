@@ -1,6 +1,6 @@
 {
-  "packages/llm-catalog-core": "0.8.8",
-  "packages/llm-catalog-pydantic-ai": "0.5.2",
-  "packages/llm-catalog-ai-sdk": "0.0.0",
-  "packages/llm-catalog-litellm": "0.6.1"
+  "packages/llm-catalog-core": "0.9.0",
+  "packages/llm-catalog-pydantic-ai": "0.6.0",
+  "packages/llm-catalog-ai-sdk": "0.1.0",
+  "packages/llm-catalog-litellm": "0.7.0"
 }

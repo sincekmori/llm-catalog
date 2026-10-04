@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -938,7 +938,7 @@ wheels = [
 
 [[package]]
 name = "llm-catalog-ai-sdk"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "packages/llm-catalog-ai-sdk" }
 dependencies = [
     { name = "ai", extra = ["anthropic", "openai"] },
@@ -955,7 +955,7 @@ requires-dist = [
 
 [[package]]
 name = "llm-catalog-core"
-version = "0.8.8"
+version = "0.9.0"
 source = { editable = "packages/llm-catalog-core" }
 dependencies = [
     { name = "httpx" },
@@ -977,7 +977,7 @@ provides-extras = ["httpx2"]
 
 [[package]]
 name = "llm-catalog-pydantic-ai"
-version = "0.5.2"
+version = "0.6.0"
 source = { editable = "packages/llm-catalog-pydantic-ai" }
 dependencies = [
     { name = "httpx2" },
