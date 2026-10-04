@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 
 [options]
@@ -789,7 +789,7 @@ wheels = [
 
 [[package]]
 name = "llm-catalog-core"
-version = "0.8.8"
+version = "0.9.0"
 source = { editable = "../llm-catalog-core" }
 dependencies = [
     { name = "httpx" },
@@ -806,7 +806,7 @@ provides-extras = ["httpx2"]
 
 [[package]]
 name = "llm-catalog-litellm"
-version = "0.6.1"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
