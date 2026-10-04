@@ -77,6 +77,32 @@ def test_cost_exposed_on_resolved_model(config_dict: dict[str, Any]) -> None:
     assert cat.resolve_role("fast").cost is None  # absent -> unknown or free
 
 
+def test_compatible_options_exposed_on_resolved_model(
+    config_dict: dict[str, Any], direct_config_dict: dict[str, Any]
+) -> None:
+    # Declarative, like cost: resolution passes the flags through for the
+    # adapters to read; unset stays None (the runtime's own default applies).
+    block = direct_config_dict["providers"][2]["vendor"]
+    block["supportsStructuredOutputs"] = True
+    direct = Catalog(direct_config_dict).resolve_role("bulk")
+    assert direct.supports_structured_outputs is True
+    assert direct.include_usage is None
+
+    # a gateway backend forwards its own flags
+    provider = config_dict["providers"][0]
+    provider["gateway"]["backends"]["fw"] = {
+        "vendor": "openai-compatible",
+        "pathTemplate": "fireworks/{slug}",
+        "includeUsage": True,
+    }
+    provider["models"].append({"id": "some-model", "backend": "fw"})
+    gateway = Catalog(config_dict).resolve_key("examplegw:some-model")
+    assert gateway.include_usage is True
+    assert gateway.supports_structured_outputs is None
+    # other vendors never carry them
+    assert Catalog(config_dict).resolve_role("reasoning").include_usage is None
+
+
 def test_resolve_key(config_dict: dict[str, Any]) -> None:
     rm = Catalog(config_dict).resolve_key("examplegw:light-openai")
     assert rm.model_id == "light-openai"

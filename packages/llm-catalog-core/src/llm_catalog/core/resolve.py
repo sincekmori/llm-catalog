@@ -64,6 +64,10 @@ class ResolvedModel:
     api_key_config: str | EnvVarRef | None = None
     default_api_key_env: str | None = None
     name: str | None = None  # openai-compatible metadata namespace
+    # openai-compatible only (None when unset): the server supports JSON-schema
+    # structured outputs / usage should be requested in streaming responses.
+    supports_structured_outputs: bool | None = None
+    include_usage: bool | None = None
     # gateway-only addressing
     backend: str | None = None  # gateway.backends key
     slug: str | None = None  # path segment (defaults to model_id)
@@ -77,6 +81,11 @@ class ResolvedModel:
     # declarative price sheet (USD per 1M tokens): the config's own, else the
     # embedded models.dev sheet; None when neither knows the model.
     cost: ModelCost | None = None
+
+    @property
+    def key(self) -> str:
+        """The model's stable ``provider:model_id`` address."""
+        return f"{self.provider_id}:{self.model_id}"
 
     def api_key(self) -> str | None:
         """Return the API key, lazily and per call.

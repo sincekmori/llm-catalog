@@ -150,6 +150,7 @@ def advanced_config_dict() -> dict[str, Any]:
                     "baseURL": "https://api.fireworks.ai/inference/v1",
                     "apiKey": {"envVarName": "FIREWORKS_API_KEY"},
                     "name": "fireworks",
+                    "supportsStructuredOutputs": True,
                 },
                 "models": [{"id": "accounts/fireworks/models/gpt-oss-120b"}],
             },

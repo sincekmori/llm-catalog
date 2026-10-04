@@ -20,7 +20,8 @@
         "apiKey": {
           "envVarName": "FIREWORKS_API_KEY"
         },
-        "name": "fireworks"
+        "name": "fireworks",
+        "supportsStructuredOutputs": true
       },
       "models": [
         {

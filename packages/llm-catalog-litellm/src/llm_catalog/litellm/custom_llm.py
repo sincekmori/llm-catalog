@@ -181,7 +181,7 @@ class ChatCatalogLLM(CustomLLM):
             # The config schema accepts every ai-sdk-catalog vendor so a shared
             # file validates as-is; this adapter can only drive these four.
             raise ResolutionError(
-                f'Vendor "{rm.vendor}" (model "{rm.provider_id}:{rm.model_id}") '
+                f'Vendor "{rm.vendor}" (model "{rm.key}") '
                 "is not supported by the LiteLLM adapter. Supported vendors: "
                 f"{sorted(_VENDOR_TO_LITELLM)}."
             )
@@ -201,15 +201,9 @@ class ChatCatalogLLM(CustomLLM):
 
     def _async_client(self, rm: ResolvedModel) -> AsyncHTTPHandler | AsyncOpenAI:
         client = httpx.AsyncClient(
-            transport=GatewayTransport(
+            transport=GatewayTransport.for_model(
                 httpx.AsyncHTTPTransport(),
-                base_url=rm.base_url,
-                path_template=rm.path_template,
-                vendor=rm.vendor,
-                action_map=rm.action_map,
-                slug=rm.slug,
-                headers=rm.resolved_headers(),
-                query=rm.query,
+                rm,
                 header_rewrite=self._header_rewrite,
                 body_rewrite=self._body_rewrite,
             )
@@ -224,15 +218,9 @@ class ChatCatalogLLM(CustomLLM):
 
     def _sync_client(self, rm: ResolvedModel) -> HTTPHandler | OpenAI:
         client = httpx.Client(
-            transport=GatewayTransportSync(
+            transport=GatewayTransportSync.for_model(
                 httpx.HTTPTransport(),
-                base_url=rm.base_url,
-                path_template=rm.path_template,
-                vendor=rm.vendor,
-                action_map=rm.action_map,
-                slug=rm.slug,
-                headers=rm.resolved_headers(),
-                query=rm.query,
+                rm,
                 header_rewrite=self._header_rewrite,
                 body_rewrite=self._body_rewrite,
             )
@@ -330,7 +318,7 @@ class ChatCatalogLLM(CustomLLM):
             api_key=rm.api_key(),
             client=self._sync_client(rm),
             stream=True,
-            **params,
+            **_stream_params(rm, params),
         )
         for chunk in response:
             yield _to_generic_chunk(chunk)
@@ -362,10 +350,22 @@ class ChatCatalogLLM(CustomLLM):
             api_key=rm.api_key(),
             client=self._async_client(rm),
             stream=True,
-            **params,
+            **_stream_params(rm, params),
         )
         async for chunk in response:
             yield _to_generic_chunk(chunk)
+
+
+def _stream_params(rm: ResolvedModel, params: dict[str, Any]) -> dict[str, Any]:
+    """Add the config's ``includeUsage`` to a streaming call's params.
+
+    ``includeUsage: true`` on an ``openai-compatible`` vendor or backend asks
+    for usage in streaming responses (``stream_options.include_usage``), as in
+    ai-sdk-catalog. The caller's own ``stream_options`` win.
+    """
+    if not rm.include_usage or "stream_options" in params:
+        return params
+    return {**params, "stream_options": {"include_usage": True}}
 
 
 def _to_generic_chunk(chunk: Any) -> GenericStreamingChunk:

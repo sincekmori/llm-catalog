@@ -18,6 +18,11 @@ agent = Agent(cat.model_for_role("fast"))
 Installing this package does not pull in `litellm`.
 The distributions are deliberately split so a Pydantic AI user's lockfile never references it.
 
-See the [repository README](https://github.com/sincekmori/llm-catalog) for the full picture and the verification notes (§9), including the google-genai / custom-httpx-client caveat.
+Requires Python 3.12+ and `pydantic-ai>=2.51`.
+The HTTP client is [`httpx2`](https://github.com/pydantic/httpx2): Pydantic AI and the SDKs it wraps (`openai>=3`, `anthropic>=1`) are built on it, and the Anthropic SDK rejects an `httpx` client outright.
+The `header_rewrite` / `body_rewrite` hooks therefore receive `httpx2.Headers` / `httpx2.Request`.
+Pass `transport_factory` to supply the underlying `httpx2` transport yourself (a proxy, mTLS, connection limits, or `httpx2.MockTransport` in tests).
+
+See the [repository README](https://github.com/sincekmori/llm-catalog) for the full picture and the verification notes (§9), including the google-genai / custom-HTTP-client caveat.
 
 import namespace: `llm_catalog.pydantic_ai`

@@ -22,6 +22,9 @@ For the proxy, reference `llm_catalog.litellm.handler` from `config.yaml`'s `cus
 
 The handler resolves each model from `ai-sdk-catalog.json` itself (the JSON config shared verbatim with — and named after — `ai-sdk-catalog`; the legacy `llm-catalog.json` remains a deprecated fallback), so the proxy config never needs gateway details in `litellm_params`, sidestepping LiteLLM issue #18216.
 
+Requires Python 3.12+.
+LiteLLM is built on `httpx` and requires `openai<3`, while `llm-catalog-pydantic-ai` and `llm-catalog-ai-sdk` need `openai>=3` (the `httpx2` line), so install this adapter in its own environment rather than alongside those two.
+
 See the [repository README](https://github.com/sincekmori/llm-catalog) for the proxy operations guide and the verification notes (§9), including whether LiteLLM honours a custom httpx client (the route-1/route-2 decision in §6.2).
 
 import namespace: `llm_catalog.litellm`

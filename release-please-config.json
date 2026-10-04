@@ -8,6 +8,7 @@
   "packages": {
     "packages/llm-catalog-core": { "component": "llm-catalog-core" },
     "packages/llm-catalog-pydantic-ai": { "component": "llm-catalog-pydantic-ai" },
+    "packages/llm-catalog-ai-sdk": { "component": "llm-catalog-ai-sdk" },
     "packages/llm-catalog-litellm": { "component": "llm-catalog-litellm" }
   }
 }

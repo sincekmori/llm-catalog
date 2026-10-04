@@ -1,13 +1,13 @@
 [project]
-name = "llm-catalog-pydantic-ai"
-version = "0.5.2"
-description = "Pydantic AI adapter for llm-catalog: build native Pydantic AI models from a catalog config, routed through your gateway."
+name = "llm-catalog-ai-sdk"
+version = "0.0.0"
+description = "AI SDK for Python adapter for llm-catalog: build native `ai` models from a catalog config, routed through your gateway."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Shinsuke Mori" }]
-keywords = ["llm", "catalog", "pydantic-ai", "gateway"]
+keywords = ["llm", "catalog", "ai-sdk", "vercel", "gateway"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -20,27 +20,27 @@ classifiers = [
 ]
 dependencies = [
     # Pre-1.0 core treats minor bumps as breaking, so pin to the minor line the
-    # adapter is developed and tested against.
-    # The `httpx2` extra brings the httpx2 flavour of GatewayTransport
-    # (llm_catalog.core.transport2), added in core 0.9.
+    # adapter is developed and tested against. The `httpx2` extra brings the
+    # httpx2 flavour of GatewayTransport (llm_catalog.core.transport2).
     "llm-catalog-core[httpx2]>=0.9.0,<0.10",
-    # Floor at the verified version. Pydantic AI moved its providers from httpx
-    # to httpx2 in 2.32, and the SDKs it wraps (openai>=3, anthropic>=1) reject
-    # or deprecate httpx clients, so this adapter only builds httpx2 clients.
-    "pydantic-ai>=2.51",
-    "httpx2>=2.7",
+    # The AI SDK for Python is in public beta and may break its API in any 0.x
+    # minor, so pin to the minor line this adapter is tested against and raise
+    # the range deliberately. The extras pull in the official OpenAI and
+    # Anthropic SDKs, which `ai` loads lazily for its direct providers.
+    "ai[anthropic,openai]>=0.7.0,<0.8",
+    "httpx2>=2.12",
 ]
 
 [project.urls]
 Homepage = "https://github.com/sincekmori/llm-catalog"
 Repository = "https://github.com/sincekmori/llm-catalog"
 Issues = "https://github.com/sincekmori/llm-catalog/issues"
-Changelog = "https://github.com/sincekmori/llm-catalog/blob/main/packages/llm-catalog-pydantic-ai/CHANGELOG.md"
+Changelog = "https://github.com/sincekmori/llm-catalog/blob/main/packages/llm-catalog-ai-sdk/CHANGELOG.md"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "llm_catalog.pydantic_ai"
+module-name = "llm_catalog.ai_sdk"
 namespace = true

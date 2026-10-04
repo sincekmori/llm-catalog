@@ -8,12 +8,13 @@
 [![ty](https://img.shields.io/badge/types-ty-261230)](https://github.com/astral-sh/ty)
 
 Drive multiple LLM runtimes from one declarative JSON config — implement nothing, configure once.
-It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `ai-sdk-catalog.json` drives TypeScript and Python alike (schema parity with ai-sdk-catalog 0.10).
+It is the Python counterpart of [`ai-sdk-catalog`](https://github.com/sincekmori/ai-sdk-utils) (Vercel AI SDK), reading the **same config file**: one `ai-sdk-catalog.json` drives TypeScript and Python alike (schema parity with ai-sdk-catalog 0.13).
 You reference a **role** name (`fast`, `reasoning`, `search`, …) and it resolves to a concrete model — either a **direct** vendor endpoint (OpenAI, Anthropic, Google, any OpenAI-compatible server) or a model behind your own **gateway**.
 
-It targets two runtimes from the same config and the same core.
+It targets three runtimes from the same config and the same core.
 
 - **Pydantic AI** — in-process, native fidelity.
+- **AI SDK for Python** — Vercel's [`ai`](https://ai-python.dev/) package (public beta), in-process.
 - **LiteLLM** — OpenAI-compatible, both in-process (SDK) and as a central proxy.
 
 Gateway quirks (path layout, action names, auth headers, query params, structured-output mode, grounding tools) are honoured as config values, never hardcoded.
@@ -21,35 +22,46 @@ The same generic code therefore works for any gateway that exposes native provid
 
 ## Packages
 
-Three independently versioned distributions form a uv workspace and share the PEP 420 namespace `llm_catalog`.
+Four independently versioned distributions share the PEP 420 namespace `llm_catalog`.
+All of them require Python 3.12+.
 
-| Distribution | PyPI | Import | Depends on |
-|---|---|---|---|
-| [`llm-catalog-core`](packages/llm-catalog-core) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-core)](https://pypi.org/project/llm-catalog-core/) | `llm_catalog.core` | `pydantic`, `httpx` |
-| [`llm-catalog-pydantic-ai`](packages/llm-catalog-pydantic-ai) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-pydantic-ai)](https://pypi.org/project/llm-catalog-pydantic-ai/) | `llm_catalog.pydantic_ai` | core + `pydantic-ai` |
-| [`llm-catalog-litellm`](packages/llm-catalog-litellm) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-litellm)](https://pypi.org/project/llm-catalog-litellm/) | `llm_catalog.litellm` | core + `litellm>=1.90.0` |
+| Distribution | PyPI | Import | Depends on | HTTP client |
+|---|---|---|---|---|
+| [`llm-catalog-core`](packages/llm-catalog-core) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-core)](https://pypi.org/project/llm-catalog-core/) | `llm_catalog.core` | `pydantic`, `httpx` (`httpx2` optional) | both |
+| [`llm-catalog-pydantic-ai`](packages/llm-catalog-pydantic-ai) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-pydantic-ai)](https://pypi.org/project/llm-catalog-pydantic-ai/) | `llm_catalog.pydantic_ai` | core + `pydantic-ai>=2.51` | `httpx2` |
+| [`llm-catalog-ai-sdk`](packages/llm-catalog-ai-sdk) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-ai-sdk)](https://pypi.org/project/llm-catalog-ai-sdk/) | `llm_catalog.ai_sdk` | core + `ai` 0.7.x | `httpx2` |
+| [`llm-catalog-litellm`](packages/llm-catalog-litellm) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-litellm)](https://pypi.org/project/llm-catalog-litellm/) | `llm_catalog.litellm` | core + `litellm>=1.90.0` | `httpx` |
 
 `llm-catalog-core` holds the config schema, validation, resolver, `GatewayTransport`, and LiteLLM codegen, and knows no runtime (and touches no filesystem).
-The two adapters depend only on core; core imports neither adapter.
+The three adapters depend only on core; core imports no adapter.
 
-**Why three distributions, not one with extras?**
+**Why separate distributions, not one with extras?**
 Python has no tree-shaking, so the only way to guarantee "don't pay for what you don't use" is to split the distributions.
 A Pydantic AI user's environment and lockfile never reference `litellm`, and vice versa.
+
+**Why two HTTP clients?**
+The Python LLM ecosystem is split between [`httpx`](https://github.com/encode/httpx) and [`httpx2`](https://github.com/pydantic/httpx2), its Pydantic-maintained continuation with the same API under a different import name.
+The official OpenAI (`>=3`) and Anthropic (`>=1`) SDKs, Pydantic AI, and the AI SDK for Python are built on `httpx2`; LiteLLM still requires `httpx` and `openai<3`.
+Core therefore ships `GatewayTransport` in both flavours — `llm_catalog.core.transport` (`httpx`) and `llm_catalog.core.transport2` (`httpx2`, via the `llm-catalog-core[httpx2]` extra) — over one shared rewrite, and each adapter uses the one its runtime speaks.
+The split also means `llm-catalog-litellm` cannot share an environment with the other two adapters until LiteLLM supports `openai>=3`.
 
 ## Install
 
 ```bash
 pip install llm-catalog-pydantic-ai   # Pydantic AI (pulls in core)
+pip install llm-catalog-ai-sdk        # AI SDK for Python (pulls in core)
 pip install llm-catalog-litellm       # LiteLLM plugin (pulls in core)
 pip install llm-catalog-core          # core only (config / resolve / codegen)
 ```
 
 ## The config: `ai-sdk-catalog.json`
 
-The config format is **JSON**, shared verbatim with `ai-sdk-catalog` (0.10) — write one file and hand it to both runtimes.
+The config format is **JSON**, shared verbatim with `ai-sdk-catalog` (0.13) — write one file and hand it to both runtimes.
 The default filename is `ai-sdk-catalog.json` because the format originates in — and its semantics are defined by — the TypeScript `ai-sdk-catalog` package; llm-catalog is a Python reader of that format, so the file is named after the format, not the reader (the same principle by which many tools read `tsconfig.json`).
 The former default `llm-catalog.json` still works as a deprecated fallback, searched after `LLM_CATALOG_CONFIG` and `ai-sdk-catalog.json`.
 A provider is either **direct** (its `vendor` — string shorthand or a block with `baseURL` / `apiKey` / `headers` / `query` — defaults to the provider `id`) or **gateway-routed** (a `gateway` block with free-form `backends`, each naming its `vendor`; every model then names its `backend` key).
+An `openai-compatible` vendor block or backend also accepts `name`, `supportsStructuredOutputs`, and `includeUsage`; on any other vendor these fail validation instead of being silently ignored.
+They surface on the resolved model (`ResolvedModel.supports_structured_outputs` / `.include_usage`): the LiteLLM adapter turns `includeUsage` into `stream_options.include_usage` on streaming calls, while Pydantic AI and the AI SDK for Python always request usage when streaming.
 Roles point at a `(provider, model)` pair, written either as an object or as the `"provider:model"` shorthand.
 Secrets are a literal string only for local endpoints; otherwise `{"envVarName": "..."}` reads the environment lazily (a gateway with no `apiKey` falls back to `AI_GATEWAY_API_KEY`).
 Every model's resolved metadata carries a price sheet (`ResolvedModel.cost`), in the billing buckets of [models.dev](https://models.dev) — USD per 1 million tokens: `input` (non-cached), `output`, `cacheRead`, `cacheWrite`.
@@ -135,7 +147,31 @@ tools = cat.grounding_tools("search")
 
 This environment never installs `litellm`.
 
-### 2. LiteLLM (in-process)
+### 2. AI SDK for Python (in-process)
+
+```python
+import json
+from pathlib import Path
+
+import ai
+from llm_catalog.ai_sdk import AISDKCatalog
+
+config = json.loads(Path("ai-sdk-catalog.json").read_text(encoding="utf-8"))
+
+async with AISDKCatalog(config) as cat:  # closes its HTTP clients on exit
+    model = cat.model_for_role("fast")  # an ai.Model with an explicit protocol
+    params = cat.params_for_role("fast")  # the role's settings, as ai params
+    async with ai.stream(model, [ai.user_message("hi")], params=params) as stream:
+        async for event in stream:
+            if isinstance(event, ai.events.TextDelta):
+                print(event.chunk, end="", flush=True)
+```
+
+`ai` speaks Anthropic Messages, OpenAI Responses, and OpenAI Chat Completions, so this adapter drives the `anthropic`, `openai`, and `openai-compatible` vendors.
+Any other vendor, and any `api` the vendor does not offer here (e.g. `completion`), raises when the model is built — nothing is silently routed to a different API.
+`ai` is in public beta, so the adapter pins the `ai` minor line it is tested against.
+
+### 3. LiteLLM (in-process)
 
 Call `register()` once to wire the handler into LiteLLM, then use `litellm` as usual.
 
@@ -154,7 +190,7 @@ resp = litellm.completion(
 
 Each process uses its own per-user key (`EXAMPLEGW_API_KEY`), and no server is needed.
 
-### 3. LiteLLM proxy (central, "config only" for everyone)
+### 4. LiteLLM proxy (central, "config only" for everyone)
 
 Run one LiteLLM proxy that references the plugin from `config.yaml`.
 See [`examples/litellm.proxy.example.yaml`](examples/litellm.proxy.example.yaml).
@@ -197,31 +233,41 @@ These depend on your gateway and the installed library versions, and are not ass
 Confirm them before relying on them; the code documents the fallback at each point.
 
 1. Each backend's exact `pathTemplate` and auth header (standard vendor header vs needing `GatewayTransport(header_rewrite=...)`).
-2. Whether google-genai honours a custom httpx client/transport; if not, fall back to building a genai `Client` and passing it via `GoogleProvider(client=...)`.
+2. Whether google-genai honours a custom HTTP client/transport on your gateway (the mock suite confirms the rewritten URL with Pydantic AI's `httpx2` client); if not, fall back to building a genai `Client` and passing it via `GoogleProvider(client=...)`.
 3. Whether Pydantic AI's builtin grounding tool emits the exact variant your gateway expects, else drive the raw vendor client.
 4. Whether LiteLLM honours a custom client and the path rewrite takes effect (the plugin's route-1 strategy), verified against the mock gateway here for all three backends; the documented fallback (route 2) is hand-written native→OpenAI conversion.
 5. LiteLLM gotchas mitigated in code: provider-id/built-in collision (#23352, warned at `register()` — direct providers naturally named `openai`/`anthropic` route to LiteLLM's built-ins, not the handler) and per-model `litellm_params` not reaching the handler (#18216, the handler self-resolves).
 6. Pydantic AI output-mode symbols `NativeOutput` / `ToolOutput` / `PromptedOutput` (confirmed against the installed version).
 7. LiteLLM pinned `>=1.90.0` (the verified floor; also past the 1.82.7 / 1.82.8 supply-chain incident).
-8. uv workspace × PEP 420 namespace × editable install: after `uv sync`, all three `llm_catalog.*` import in one venv (covered by the test suite and CI).
+8. uv workspace × PEP 420 namespace × editable install: after `uv sync`, the workspace members (`llm_catalog.core` / `.pydantic_ai` / `.ai_sdk`) import in one venv (covered by the test suite and CI).
+9. The AI SDK for Python is in beta: the adapter's tests assert that `ai` honours the injected `httpx2` client, base URL, key, and protocol, so an incompatible `ai` release fails CI rather than at runtime — but confirm streaming and tool calls against your real gateway.
 
 ## Development
 
-Python 3.10+, [uv](https://docs.astral.sh/uv/) workspace.
+Python 3.12+, [uv](https://docs.astral.sh/uv/).
+
+`llm-catalog-core`, `llm-catalog-pydantic-ai`, and `llm-catalog-ai-sdk` form a uv workspace with one lockfile.
+`llm-catalog-litellm` is a standalone project with its own lockfile and virtual environment, because a workspace resolves a single version of every dependency and LiteLLM's `openai<3` pin would hold the other adapters on SDK versions their users never install.
 
 ```bash
-uv sync                      # one venv, all three members editable
+uv sync                      # the workspace: one venv, three members editable
 uv run pytest                # mock-only tests; no real gateway/keys
-uv run ruff check . && uv run ruff format --check .
-uv run ty check packages     # strict type check
-uv build --all-packages      # build all three distributions
+uv run ruff check . && uv run ruff format --check .   # covers every package
+uv run ty check packages     # strict type check (workspace members)
+uv build --all-packages      # build the workspace distributions
+
+cd packages/llm-catalog-litellm
+uv sync                      # its own venv, core installed from ../llm-catalog-core
+uv run pytest
+uv run ty check
 ```
 
-Local dev runs on Python 3.10 (the floor of the supported range, pinned in `.python-version`), so 3.10-incompatible code is caught immediately; CI runs the full 3.10–3.14 matrix.
+Local dev runs on Python 3.12 (the floor of the supported range, pinned in `.python-version`), so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.14 matrix for both projects.
+Both projects set `exclude-newer = "7 days"`, so `uv lock --upgrade` never resolves to a release younger than a week.
 
 ## Releases
 
 Releases are automated with [release-please](https://github.com/googleapis/release-please) (GitHub only).
 Commits on `main` follow [Conventional Commits](https://www.conventionalcommits.org), and `feat:` / `fix:` entries drive each package's version bump.
 release-please maintains a release PR that bumps the affected versions and updates their `CHANGELOG.md`; merging it tags each changed package (e.g. `llm-catalog-core-v0.2.0`) and publishes it to PyPI via Trusted Publishing (OIDC, no API token).
-The three distributions are versioned and released independently.
+The four distributions are versioned and released independently.

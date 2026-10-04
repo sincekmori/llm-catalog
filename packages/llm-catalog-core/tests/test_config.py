@@ -168,6 +168,71 @@ def test_backend_name_only_on_openai_compatible(config_dict: dict[str, Any]) -> 
         parse(config_dict)
 
 
+# --- openai-compatible-only options (name / supportsStructuredOutputs /
+# includeUsage): accepted for that vendor — direct blocks and gateway backends
+# alike — and rejected everywhere else, mirroring ai-sdk-catalog 0.11.
+
+
+def test_compatible_options_accepted_on_vendor_block(
+    direct_config_dict: dict[str, Any],
+) -> None:
+    block = direct_config_dict["providers"][2]["vendor"]
+    block["supportsStructuredOutputs"] = True
+    block["includeUsage"] = False
+    parsed = parse(direct_config_dict).providers[2].vendor
+    assert not isinstance(parsed, str)
+    assert parsed is not None
+    assert parsed.supports_structured_outputs is True
+    assert parsed.include_usage is False
+
+
+def test_compatible_options_accepted_on_backend(config_dict: dict[str, Any]) -> None:
+    gw = config_dict["providers"][0]["gateway"]
+    gw["backends"]["fw"] = {
+        "vendor": "openai-compatible",
+        "pathTemplate": "fireworks/{slug}",
+        "name": "fireworks",
+        "supportsStructuredOutputs": True,
+        "includeUsage": True,
+    }
+    gateway = parse(config_dict).providers[0].gateway
+    assert gateway is not None
+    backend = gateway.backends["fw"]
+    assert backend.supports_structured_outputs is True
+    assert backend.include_usage is True
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [{"supportsStructuredOutputs": True}, {"includeUsage": False}, {"name": "nope"}],
+)
+def test_compatible_options_rejected_on_other_vendor(flags: dict[str, Any]) -> None:
+    config = {
+        "providers": [
+            {"id": "anthropic", "vendor": flags, "models": [{"id": "claude-sonnet-5"}]}
+        ],
+        "roles": {},
+    }
+    with pytest.raises(
+        ConfigError, match='applies only to the "openai-compatible" vendor'
+    ) as excinfo:
+        parse(config)
+    assert f'"vendor.{next(iter(flags))}"' in str(excinfo.value)
+
+
+@pytest.mark.parametrize("field", ["supportsStructuredOutputs", "includeUsage", "name"])
+def test_compatible_options_rejected_on_other_backend(
+    config_dict: dict[str, Any], field: str
+) -> None:
+    backend = config_dict["providers"][0]["gateway"]["backends"]["anthropic"]
+    backend[field] = "nope" if field == "name" else True
+    with pytest.raises(
+        ConfigError,
+        match=f'"{field}", which only applies to an "openai-compatible" backend',
+    ):
+        parse(config_dict)
+
+
 def test_duplicate_provider_id_rejected(config_dict: dict[str, Any]) -> None:
     config_dict["providers"].append(copy.deepcopy(config_dict["providers"][0]))
     with pytest.raises(ConfigError, match="Duplicate provider id"):

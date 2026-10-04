@@ -2,12 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 """llm-catalog-core: runtime-agnostic config, resolution, transport, and codegen.
 
-This distribution knows nothing about any runtime adapter (Pydantic AI, LiteLLM)
-and never touches the filesystem. Parse your catalog config JSON yourself and
-hand the mapping to :class:`Catalog`, which validates it and resolves roles/keys
-to :class:`ResolvedModel`. It also provides the path-rewriting
-:class:`GatewayTransport` and generates a native LiteLLM config
+This distribution knows nothing about any runtime adapter (Pydantic AI, the AI
+SDK for Python, LiteLLM) and never touches the filesystem. Parse your catalog
+config JSON yourself and hand the mapping to :class:`Catalog`, which validates
+it and resolves roles/keys to :class:`ResolvedModel`. It also provides the
+path-rewriting :class:`GatewayTransport` and generates a native LiteLLM config
 (:func:`to_litellm_config`).
+
+The :class:`GatewayTransport` exported here is the ``httpx`` flavour. Vendor
+SDKs built on ``httpx2`` (``openai>=3``, ``anthropic>=1``) need the identical
+classes in :mod:`llm_catalog.core.transport2`, which is imported explicitly
+because ``httpx2`` is an optional dependency (``llm-catalog-core[httpx2]``).
 
 The config's JSON Schema ships as ``schema.json`` inside this package (see
 :func:`config_json_schema`) — point a config's ``"$schema"`` at it for editor

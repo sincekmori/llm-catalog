@@ -106,8 +106,45 @@
     },
     "GatewayBackend": {
       "additionalProperties": false,
-      "description": "One upstream backend on the gateway.\n\nBackends live in a map under a key of your choice, so the same vendor can\nappear more than once (e.g. two regions); each model picks its backend by\nthat key via ``backend``.\n\n``path_template`` is the path (relative to the gateway ``base_url``) the\ngateway expects, with ``{slug}`` (the model) and \u2014 for a ``google``\nbackend, whose model lives in the URL \u2014 ``{action}`` (the operation)\nplaceholders. ``action_map`` (google only) renames an operation to the\ngateway's name (e.g. ``streamGenerateContent`` ->\n``customStreamGenerateContent``); operations not listed pass through\nunchanged. ``name`` (openai-compatible only) sets the metadata namespace.\n``headers``/``query`` apply to this backend only, merged over the\ngateway-level ones (backend wins per name).",
+      "description": "One upstream backend on the gateway.\n\nBackends live in a map under a key of your choice, so the same vendor can\nappear more than once (e.g. two regions); each model picks its backend by\nthat key via ``backend``.\n\n``path_template`` is the path (relative to the gateway ``base_url``) the\ngateway expects, with ``{slug}`` (the model) and \u2014 for a ``google``\nbackend, whose model lives in the URL \u2014 ``{action}`` (the operation)\nplaceholders. ``action_map`` (google only) renames an operation to the\ngateway's name (e.g. ``streamGenerateContent`` ->\n``customStreamGenerateContent``); operations not listed pass through\nunchanged. ``name``, ``supportsStructuredOutputs`` and ``includeUsage``\n(inherited) are openai-compatible only, with the same meaning as in a\ndirect vendor block. ``headers``/``query`` apply to this backend only,\nmerged over the gateway-level ones (backend wins per name).",
       "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "supportsStructuredOutputs": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supportsstructuredoutputs"
+        },
+        "includeUsage": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Includeusage"
+        },
         "vendor": {
           "enum": [
             "anthropic",
@@ -143,19 +180,6 @@
           ],
           "default": null,
           "title": "Actionmap"
-        },
-        "name": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Name"
         },
         "headers": {
           "anyOf": [
@@ -612,8 +636,45 @@
     },
     "VendorBlock": {
       "additionalProperties": false,
-      "description": "A direct provider's vendor: which bundled vendor backs it, plus overrides.\n\nEverything is optional \u2014 ``id`` defaults to the provider's own id, and with\nno overrides the vendor SDK's defaults apply (its endpoint, its key env\nvar). The string shorthand ``\"vendor\": \"x\"`` means ``{\"id\": \"x\"}``.",
+      "description": "A direct provider's vendor: which bundled vendor backs it, plus overrides.\n\nEverything is optional \u2014 ``id`` defaults to the provider's own id, and with\nno overrides the vendor SDK's defaults apply (its endpoint, its key env\nvar). The string shorthand ``\"vendor\": \"x\"`` means ``{\"id\": \"x\"}``.\n\n``name``, ``supportsStructuredOutputs`` and ``includeUsage`` (inherited)\nare options of the ``openai-compatible`` vendor only.",
       "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "supportsStructuredOutputs": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supportsstructuredoutputs"
+        },
+        "includeUsage": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Includeusage"
+        },
         "id": {
           "anyOf": [
             {
@@ -666,19 +727,6 @@
           ],
           "default": null,
           "title": "Apikey"
-        },
-        "name": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Name"
         },
         "headers": {
           "anyOf": [

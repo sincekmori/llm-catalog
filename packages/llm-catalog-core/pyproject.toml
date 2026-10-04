@@ -3,18 +3,16 @@ name = "llm-catalog-core"
 version = "0.8.8"
 description = "Gateway-agnostic core for llm-catalog: config schema, resolver, GatewayTransport, and LiteLLM codegen. Knows nothing about any runtime adapter."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Shinsuke Mori" }]
-keywords = ["llm", "catalog", "gateway", "httpx", "config"]
+keywords = ["llm", "catalog", "gateway", "httpx", "httpx2", "config"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -24,6 +22,11 @@ dependencies = [
     "pydantic>=2.7",
     "httpx>=0.27",
 ]
+
+[project.optional-dependencies]
+# The `httpx2` flavour of GatewayTransport (llm_catalog.core.transport2), for
+# vendor SDKs that moved from httpx to httpx2 (openai>=3, anthropic>=1).
+httpx2 = ["httpx2>=2.7"]
 
 [project.urls]
 Homepage = "https://github.com/sincekmori/llm-catalog"

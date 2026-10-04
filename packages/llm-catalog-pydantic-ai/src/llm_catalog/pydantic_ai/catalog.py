@@ -4,28 +4,27 @@
 
 :class:`PydanticAICatalog` wraps the core :class:`~llm_catalog.core.Catalog`
 and, for a given role/key, constructs the right Pydantic AI ``Model`` +
-``Provider``. A **gateway** model gets an ``httpx.AsyncClient`` whose transport
-is the core :class:`~llm_catalog.core.GatewayTransport` (path rewriting plus
-the declarative ``headers``/``query``); a **direct** model calls the vendor's
-own endpoint (or the vendor block's ``baseURL``), with the same transport
-applying only the declarative extras. Nothing gateway-specific is hardcoded —
-every quirk comes from the catalog config.
+``Provider``. A **gateway** model gets an ``httpx2.AsyncClient`` whose transport
+is the core :class:`~llm_catalog.core.transport2.GatewayTransport` (path
+rewriting plus the declarative ``headers``/``query``); a **direct** model calls
+the vendor's own endpoint (or the vendor block's ``baseURL``), with the same
+transport applying only the declarative extras. Nothing gateway-specific is
+hardcoded — every quirk comes from the catalog config.
+
+The HTTP client is ``httpx2`` (the Pydantic-maintained continuation of
+``httpx``): Pydantic AI and the vendor SDKs it wraps (``openai>=3``,
+``anthropic>=1``) are built on it, and the Anthropic SDK rejects an ``httpx``
+client outright.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any, cast
 
-import httpx
+import httpx2
 
-from llm_catalog.core import (
-    BodyRewrite,
-    Catalog,
-    CatalogConfig,
-    GatewayTransport,
-    HeaderRewrite,
-    ResolvedModel,
-)
+from llm_catalog.core import Catalog, CatalogConfig, ResolvedModel
 from llm_catalog.core.errors import LLMCatalogError
+from llm_catalog.core.transport2 import BodyRewrite, GatewayTransport, HeaderRewrite
 from pydantic_ai import (
     CodeExecutionTool,
     NativeOutput,
@@ -96,10 +95,16 @@ class PydanticAICatalog:
         cat = PydanticAICatalog(config)
 
     ``header_rewrite`` / ``body_rewrite`` are passed through to every
-    :class:`~llm_catalog.core.GatewayTransport` this catalog builds — the
-    escape hatch for gateways that need a header tweaked or part of a vendor
-    payload adjusted. Both hooks run after the URL rewrite, so they can target
-    a specific gateway path via ``request.url``.
+    :class:`~llm_catalog.core.transport2.GatewayTransport` this catalog builds
+    — the escape hatch for gateways that need a header tweaked or part of a
+    vendor payload adjusted. Both hooks run after the URL rewrite, so they can
+    target a specific gateway path via ``request.url``. They receive
+    ``httpx2`` objects (``httpx2.Headers`` / ``httpx2.Request``).
+
+    ``transport_factory`` builds the network transport each
+    ``GatewayTransport`` wraps (default: ``httpx2.AsyncHTTPTransport``) — pass
+    one to route through a proxy, set mTLS or connection limits, or to
+    substitute ``httpx2.MockTransport`` in tests.
     """
 
     def __init__(
@@ -108,10 +113,12 @@ class PydanticAICatalog:
         *,
         header_rewrite: HeaderRewrite | None = None,
         body_rewrite: BodyRewrite | None = None,
+        transport_factory: Callable[[], httpx2.AsyncBaseTransport] | None = None,
     ) -> None:
         self._catalog = catalog if isinstance(catalog, Catalog) else Catalog(catalog)
         self._header_rewrite = header_rewrite
         self._body_rewrite = body_rewrite
+        self._transport_factory = transport_factory or httpx2.AsyncHTTPTransport
 
     @property
     def catalog(self) -> Catalog:
@@ -168,30 +175,24 @@ class PydanticAICatalog:
         # The config schema accepts every ai-sdk-catalog vendor so a shared
         # file validates as-is; this adapter can only drive these four.
         raise LLMCatalogError(
-            f'Vendor "{rm.vendor}" (model "{rm.provider_id}:{rm.model_id}") is '
+            f'Vendor "{rm.vendor}" (model "{rm.key}") is '
             "not supported by the Pydantic AI adapter. Supported vendors: "
             '"anthropic", "openai", "openai-compatible", "google".'
         )
 
-    def _client(self, rm: ResolvedModel) -> httpx.AsyncClient:
-        """Build the httpx client; one transport serves both provider kinds.
+    def _client(self, rm: ResolvedModel) -> httpx2.AsyncClient:
+        """Build the httpx2 client; one transport serves both provider kinds.
 
         A gateway model gets the path rewrite; a direct model only the
         declarative headers/query (and the code-level hooks).
         """
-        transport = GatewayTransport(
-            httpx.AsyncHTTPTransport(),
-            base_url=rm.base_url,
-            path_template=rm.path_template,  # None for direct -> no rewrite
-            vendor=rm.vendor,
-            action_map=rm.action_map,
-            slug=rm.slug,
-            headers=rm.resolved_headers(),
-            query=rm.query,
+        transport = GatewayTransport.for_model(
+            self._transport_factory(),
+            rm,
             header_rewrite=self._header_rewrite,
             body_rewrite=self._body_rewrite,
         )
-        return httpx.AsyncClient(transport=transport)
+        return httpx2.AsyncClient(transport=transport)
 
     def _provider_kwargs(self, rm: ResolvedModel) -> dict[str, Any]:
         """Build the common Pydantic AI provider kwargs.
@@ -218,7 +219,7 @@ class PydanticAICatalog:
     def _openai(self, rm: ResolvedModel, settings: ModelSettings | None) -> Model:
         if rm.api == "completion":
             raise LLMCatalogError(
-                f'Model "{rm.provider_id}:{rm.model_id}" sets api="completion"; '
+                f'Model "{rm.key}" sets api="completion"; '
                 "the legacy Completions API is not supported by the Pydantic AI "
                 "adapter."
             )
@@ -235,7 +236,7 @@ class PydanticAICatalog:
     ) -> Model:
         if rm.api in {"responses", "completion"}:
             raise LLMCatalogError(
-                f'Model "{rm.provider_id}:{rm.model_id}" sets api="{rm.api}"; '
+                f'Model "{rm.key}" sets api="{rm.api}"; '
                 'an "openai-compatible" vendor only speaks Chat Completions in '
                 "the Pydantic AI adapter."
             )
@@ -244,7 +245,7 @@ class PydanticAICatalog:
 
     def _google(self, rm: ResolvedModel, settings: ModelSettings | None) -> GoogleModel:
         # NOTE (§9, requires verification): some google-genai versions ignore a
-        # custom httpx client/transport. If GatewayTransport turns out not to
+        # custom HTTP client/transport. If GatewayTransport turns out not to
         # take effect here, the fallback is to build a genai Client with the
         # transport wired in and pass it via GoogleProvider(client=...).
         provider = GoogleProvider(**self._provider_kwargs(rm))

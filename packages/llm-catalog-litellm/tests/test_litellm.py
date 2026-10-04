@@ -97,6 +97,45 @@ async def test_streaming_yields_openai_form(registered) -> None:
     assert "".join(collected) == "hello"
 
 
+async def test_include_usage_adds_stream_options(registered, config_dict) -> None:
+    # `includeUsage: true` on an openai-compatible backend asks for usage in
+    # streaming responses, as in ai-sdk-catalog; other backends send nothing.
+    import json
+
+    provider = config_dict["providers"][0]
+    provider["gateway"]["backends"]["fw"] = {
+        "vendor": "openai-compatible",
+        "pathTemplate": "fw/{slug}",
+        "includeUsage": True,
+    }
+    provider["models"].append({"id": "some-model", "backend": "fw"})
+    registered.handler.set_catalog(Catalog(config_dict))
+
+    def stream_response() -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=_OPENAI_STREAM.encode(),
+        )
+
+    with respx.mock(assert_all_called=False) as mock:
+        flagged = mock.post(f"{BASE}/fw/some-model").mock(
+            return_value=stream_response()
+        )
+        plain = mock.post(f"{BASE}/gpt/oai-light").mock(return_value=stream_response())
+        for model in ("examplegw/some-model", "examplegw/fast"):
+            resp = await litellm.acompletion(
+                model=model,
+                messages=[{"role": "user", "content": "hi"}],
+                stream=True,
+            )
+            async for _ in resp:
+                pass
+    flagged_body = json.loads(flagged.calls[0].request.content)
+    assert flagged_body["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in json.loads(plain.calls[0].request.content)
+
+
 def test_resolves_role_and_provider_model_key(registered) -> None:
     # A non-role model id under the provider must also resolve.
     with respx.mock(assert_all_called=False) as mock:

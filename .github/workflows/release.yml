@@ -1,4 +1,4 @@
-# Automated, changeset-style releases for the three distributions.
+# Automated, changeset-style releases for the four distributions.
 #
 # release-please reads Conventional Commits on main and opens/maintains a release
 # PR per change: it bumps each affected package's version in its pyproject.toml,
@@ -12,8 +12,9 @@
 #   - PyPI pending publishers are unique per (owner, repo, workflow, environment),
 #     so each project needs a DISTINCT environment. On PyPI register a pending
 #     Trusted Publisher for each (owner: sincekmori, repo: llm-catalog, workflow:
-#     release.yml) with environment pypi-core / pypi-pydantic-ai / pypi-litellm.
-#   - Create the matching GitHub Environments with those same three names.
+#     release.yml) with environment pypi-core / pypi-pydantic-ai / pypi-ai-sdk /
+#     pypi-litellm.
+#   - Create the matching GitHub Environments with those same four names.
 
 name: Release
 
@@ -46,12 +47,14 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   # release-please bumps each package's pyproject.toml but knows nothing about
-  # uv, so uv.lock (which records the workspace members' own versions) would
+  # uv, so the lockfiles (which record the local packages' own versions) would
   # drift on every release and sneak into someone's next unrelated commit.
   # Re-lock on the release PR branch itself so the PR ships consistent
   # metadata; CI's `uv sync --locked` guards against drift landing anywhere
   # else. Runs whenever release-please created or updated the PR, so it
-  # self-heals on every push to main while the PR is open.
+  # self-heals on every push to main while the PR is open. There are two
+  # lockfiles: the workspace's, and the standalone llm-catalog-litellm
+  # project's (which records the core it depends on by path).
   sync-lockfile:
     needs: release-please
     if: ${{ needs.release-please.outputs.pr }}
@@ -64,15 +67,18 @@ jobs:
           ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
       - uses: astral-sh/setup-uv@v7
       - run: uv lock
-      - name: Commit and push the synced lockfile
+      - run: uv lock
+        working-directory: packages/llm-catalog-litellm
+      - name: Commit and push the synced lockfiles
         run: |
-          if git diff --quiet -- uv.lock; then
-            echo "uv.lock already in sync"
+          locks="uv.lock packages/llm-catalog-litellm/uv.lock"
+          if git diff --quiet -- $locks; then
+            echo "lockfiles already in sync"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: sync uv.lock with the released package versions" -- uv.lock
+          git commit -m "chore: sync uv.lock with the released package versions" -- $locks
           git push
 
   # One publish job per package: PyPI pending publishers are unique per
@@ -104,6 +110,21 @@ jobs:
       - run: uv build --package llm-catalog-pydantic-ai --out-dir dist
       - run: uv publish
 
+  publish-ai-sdk:
+    needs: release-please
+    if: contains(needs.release-please.outputs.paths_released, 'packages/llm-catalog-ai-sdk')
+    runs-on: ubuntu-latest
+    environment: pypi-ai-sdk
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv build --package llm-catalog-ai-sdk --out-dir dist
+      - run: uv publish
+
+  # llm-catalog-litellm is a standalone project, not a workspace member, so it
+  # is built by path rather than with --package.
   publish-litellm:
     needs: release-please
     if: contains(needs.release-please.outputs.paths_released, 'packages/llm-catalog-litellm')
@@ -114,5 +135,5 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv build --package llm-catalog-litellm --out-dir dist
+      - run: uv build packages/llm-catalog-litellm --out-dir dist
       - run: uv publish

@@ -1,20 +1,31 @@
 # Virtual workspace root for the llm-catalog monorepo.
 #
-# This root declares no [project] of its own — it only wires the three
-# distributions together as a uv workspace and centralises tooling config
-# (ruff / ty / pytest) so every member is linted and type-checked the same way.
+# This root declares no [project] of its own — it only wires the workspace
+# members together and centralises tooling config (ruff / ty / pytest) so every
+# distribution is linted and type-checked the same way.
 #
 # Distributions (see packages/*):
-#   - llm-catalog-core         -> import llm_catalog.core
-#   - llm-catalog-pydantic-ai  -> import llm_catalog.pydantic_ai
-#   - llm-catalog-litellm      -> import llm_catalog.litellm
+#   - llm-catalog-core         -> import llm_catalog.core         (workspace)
+#   - llm-catalog-pydantic-ai  -> import llm_catalog.pydantic_ai  (workspace)
+#   - llm-catalog-ai-sdk       -> import llm_catalog.ai_sdk       (workspace)
+#   - llm-catalog-litellm      -> import llm_catalog.litellm      (own project)
 #
 # `llm_catalog` is a PEP 420 namespace package: no distribution ships
-# llm_catalog/__init__.py, so the three subpackages merge into one namespace
-# inside a single venv.
+# llm_catalog/__init__.py, so the subpackages merge into one namespace inside a
+# single venv.
 
+# A uv workspace resolves every member into ONE lockfile, so all members share
+# a single version of each dependency. LiteLLM still requires `openai<3` (the
+# `httpx` era) while the OpenAI / Anthropic SDKs, Pydantic AI and the AI SDK
+# for Python have moved to `httpx2` and `openai>=3`. Keeping
+# llm-catalog-litellm in the workspace would pin everyone to the old SDK line
+# and test the other adapters against versions their users never install, so
+# it is a standalone project with its own lockfile (packages/llm-catalog-litellm)
+# that depends on llm-catalog-core by path. Drop the `exclude` once LiteLLM
+# supports `openai>=3`.
 [tool.uv.workspace]
 members = ["packages/*"]
+exclude = ["packages/llm-catalog-litellm"]
 
 # Dev-time resolution: adapters depend on llm-catalog-core via the workspace
 # copy, not PyPI. The published wheels still carry the version constraint from
@@ -31,7 +42,6 @@ dev = [
     "ty>=0.0.73",
     "pytest>=9",
     "pytest-asyncio>=1.2",
-    "respx>=0.23",
     # Test-only: asserts the generated LiteLLM config (JSON) also parses as
     # YAML, the way LiteLLM's proxy loads it. The shipped packages use no YAML.
     "pyyaml>=6.0",
@@ -39,7 +49,7 @@ dev = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py312"
 src = ["packages/*/src", "packages/*/tests"]
 
 [tool.ruff.lint]
@@ -64,7 +74,7 @@ ignore = [
     # Local imports are intentional (keep optional deps / runtimes lazy).
     "PLC0415",
     # flake8-type-checking assumes `from __future__ import annotations`; we don't
-    # use it (3.10+), so moving these imports into TYPE_CHECKING would break at
+    # use it (3.12+), so moving these imports into TYPE_CHECKING would break at
     # runtime. Leave them as normal imports.
     "TC001",
     "TC002",
@@ -86,13 +96,15 @@ known-first-party = ["llm_catalog"]
     "ARG002",  # unused method arguments dictated by the base class
     "PLR0913", # too many arguments dictated by the base class
     "PLR0917", # ... and they are positional in the base's calling convention
+    "ASYNC109", # ... including `timeout`, which the base passes explicitly
     "D102",    # methods documented via the base class / module docstring
     "PLR0911", # backend dispatch naturally has several returns
     "C901",    # the dispatch is simple despite the metric
 ]
-# GatewayTransport legitimately takes many configuration arguments, and the
-# per-backend slug/action extraction branches on backend.
-"packages/llm-catalog-core/src/llm_catalog/core/transport.py" = [
+# GatewayTransport legitimately takes many configuration arguments (its one
+# constructor serves the httpx and httpx2 flavours), and the per-backend
+# slug/action extraction branches on backend.
+"packages/llm-catalog-core/src/llm_catalog/core/_rewrite.py" = [
     "PLR0911", # extraction returns once per backend shape
     "PLR0913", # transports take the full gateway config as arguments
     "PLR0917", # keeping them positional-friendly matches httpx transport style
@@ -115,12 +127,26 @@ known-first-party = ["llm_catalog"]
 ]
 
 [tool.ty.environment]
-python-version = "3.10"
+python-version = "3.12"
+
+# llm-catalog-litellm is a standalone project with its own environment (LiteLLM
+# is not installed here); type-check it from its own directory.
+[tool.ty.src]
+exclude = ["packages/llm-catalog-litellm"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# llm-catalog-litellm is a standalone project: run its tests from its own
+# directory (`cd packages/llm-catalog-litellm && uv run pytest`).
 testpaths = [
     "packages/llm-catalog-core/tests",
     "packages/llm-catalog-pydantic-ai/tests",
-    "packages/llm-catalog-litellm/tests",
+    "packages/llm-catalog-ai-sdk/tests",
 ]
+
+# Supply-chain guard: never resolve to a release younger than 7 days. uv stores
+# this as a relative span in uv.lock, so `uv sync --locked` stays valid as time
+# passes; `uv lock --upgrade` (and Dependabot) only move to releases that have
+# been public for at least a week.
+[tool.uv]
+exclude-newer = "7 days"

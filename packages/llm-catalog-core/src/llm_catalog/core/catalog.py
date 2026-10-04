@@ -176,6 +176,8 @@ class Catalog:
                 api_key_config=gateway.api_key,
                 default_api_key_env=GATEWAY_DEFAULT_API_KEY_ENV,
                 name=backend.name,
+                supports_structured_outputs=backend.supports_structured_outputs,
+                include_usage=backend.include_usage,
                 backend=model.backend,
                 slug=model.slug or model.id,
                 path_template=backend.path_template,
@@ -200,6 +202,10 @@ class Catalog:
             api_key_config=block.api_key if block is not None else None,
             default_api_key_env=None,  # the vendor SDK's own default applies
             name=block.name if block is not None else None,
+            supports_structured_outputs=(
+                block.supports_structured_outputs if block is not None else None
+            ),
+            include_usage=block.include_usage if block is not None else None,
             headers=dict(block.headers or {}) if block is not None else {},
             query=dict(block.query or {}) if block is not None else {},
             settings=settings,

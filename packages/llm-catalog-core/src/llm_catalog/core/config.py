@@ -4,7 +4,7 @@
 
 This is the single source of truth for providers, the models they serve, and the
 roles an application references. It mirrors the TypeScript ``ai-sdk-catalog``
-(0.10) config so the *same* JSON file can drive both ecosystems: the camelCase
+(0.13) config so the *same* JSON file can drive both ecosystems: the camelCase
 keys (``baseURL``, ``envVarName``, ``pathTemplate``, ``actionMap``, ...) are
 accepted via Pydantic aliases, while ``populate_by_name`` also lets Python code
 build models with snake_case names.
@@ -251,20 +251,48 @@ class ModelEntry(BaseModel):
     capabilities: ModelCapabilities = Field(default_factory=ModelCapabilities)
 
 
-class VendorBlock(BaseModel):
+class _OpenAICompatibleOptions(BaseModel):
+    """Options of the ``openai-compatible`` vendor, shared by both block kinds.
+
+    A direct vendor block and a gateway backend accept the same three; on any
+    other vendor they fail validation (they would be silently ignored
+    otherwise).
+    """
+
+    model_config = _MODEL_CONFIG
+
+    name: _NonEmptyStr | None = None  # metadata namespace
+    # The server supports JSON-schema structured outputs.
+    supports_structured_outputs: bool | None = Field(
+        default=None, alias="supportsStructuredOutputs"
+    )
+    # Ask for usage in streaming responses
+    # (`stream_options: { include_usage: true }`).
+    include_usage: bool | None = Field(default=None, alias="includeUsage")
+
+    def compatible_options_set(self) -> list[str]:
+        """Return the file names of the openai-compatible-only options set."""
+        return [
+            field.alias or name
+            for name, field in _OpenAICompatibleOptions.model_fields.items()
+            if getattr(self, name) is not None
+        ]
+
+
+class VendorBlock(_OpenAICompatibleOptions):
     """A direct provider's vendor: which bundled vendor backs it, plus overrides.
 
     Everything is optional — ``id`` defaults to the provider's own id, and with
     no overrides the vendor SDK's defaults apply (its endpoint, its key env
     var). The string shorthand ``"vendor": "x"`` means ``{"id": "x"}``.
-    """
 
-    model_config = _MODEL_CONFIG
+    ``name``, ``supportsStructuredOutputs`` and ``includeUsage`` (inherited)
+    are options of the ``openai-compatible`` vendor only.
+    """
 
     id: VendorName | None = None  # defaults to the provider id
     base_url: _NonEmptyStr | None = Field(default=None, alias="baseURL")
     api_key: ApiKey | None = Field(default=None, alias="apiKey")
-    name: _NonEmptyStr | None = None  # openai-compatible metadata namespace
     # Extra headers sent with every request (merged over the vendor SDK's own,
     # same-name wins). An inline value may embed the key via "{apiKey}".
     headers: RequestHeaders | None = None
@@ -272,7 +300,7 @@ class VendorBlock(BaseModel):
     query: QueryParams | None = None
 
 
-class GatewayBackend(BaseModel):
+class GatewayBackend(_OpenAICompatibleOptions):
     """One upstream backend on the gateway.
 
     Backends live in a map under a key of your choice, so the same vendor can
@@ -285,17 +313,15 @@ class GatewayBackend(BaseModel):
     placeholders. ``action_map`` (google only) renames an operation to the
     gateway's name (e.g. ``streamGenerateContent`` ->
     ``customStreamGenerateContent``); operations not listed pass through
-    unchanged. ``name`` (openai-compatible only) sets the metadata namespace.
-    ``headers``/``query`` apply to this backend only, merged over the
-    gateway-level ones (backend wins per name).
+    unchanged. ``name``, ``supportsStructuredOutputs`` and ``includeUsage``
+    (inherited) are openai-compatible only, with the same meaning as in a
+    direct vendor block. ``headers``/``query`` apply to this backend only,
+    merged over the gateway-level ones (backend wins per name).
     """
-
-    model_config = _MODEL_CONFIG
 
     vendor: VendorName
     path_template: _NonEmptyStr = Field(alias="pathTemplate")
     action_map: dict[str, str] | None = Field(default=None, alias="actionMap")
-    name: _NonEmptyStr | None = None
     headers: RequestHeaders | None = None
     query: QueryParams | None = None
 
@@ -470,6 +496,14 @@ def _provider_kind_issues(provider: Provider) -> list[str]:
             f'Provider "{provider.id}" uses the "openai-compatible" vendor and '
             'must set a "baseURL" in its "vendor" block.'
         )
+    if block is not None and vendor_id != "openai-compatible":
+        # These map to options of the OpenAI-compatible vendor; any other
+        # vendor would silently ignore them, so reject them instead.
+        issues.extend(
+            f'Provider "{provider.id}" sets "vendor.{field}", which applies '
+            'only to the "openai-compatible" vendor.'
+            for field in block.compatible_options_set()
+        )
     if (
         block is not None
         and block.headers is not None
@@ -503,10 +537,11 @@ def _gateway_issues(provider_id: str, gateway: Gateway) -> list[str]:
             issues.append(
                 f'"{path}" sets "actionMap", which only applies to a "google" backend.'
             )
-        if backend.name is not None and backend.vendor != "openai-compatible":
-            issues.append(
-                f'"{path}" sets "name", which only applies to an '
+        if backend.vendor != "openai-compatible":
+            issues.extend(
+                f'"{path}" sets "{field}", which only applies to an '
                 '"openai-compatible" backend.'
+                for field in backend.compatible_options_set()
             )
     return issues
 

@@ -2,15 +2,26 @@
 
 ## Development
 
-Python 3.10+ with [uv](https://docs.astral.sh/uv/).
-Local development runs on 3.10 (the floor of the supported range) so 3.10-incompatible code is caught immediately; CI runs the full 3.10–3.14 matrix.
+Python 3.12+ with [uv](https://docs.astral.sh/uv/).
+Local development runs on 3.12 (the floor of the supported range) so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.14 matrix.
+
+The repository holds two uv projects.
+The workspace at the root covers `llm-catalog-core`, `llm-catalog-pydantic-ai`, and `llm-catalog-ai-sdk`.
+`llm-catalog-litellm` is a standalone project with its own lockfile, because LiteLLM requires `openai<3` while the workspace members resolve to `openai>=3`.
 
 ```bash
-uv sync                                       # one venv, all three members editable
+uv sync                                       # the workspace: one venv, members editable
 uv run pytest                                 # mock-only; no real gateway or keys
-uv run ruff check . && uv run ruff format --check .
+uv run ruff check . && uv run ruff format --check .   # covers every package
 uv run ty check packages                      # strict
+
+cd packages/llm-catalog-litellm               # the standalone project
+uv sync
+uv run pytest
+uv run ty check
 ```
+
+A change to `llm-catalog-core` can affect both projects, so run both test suites.
 
 ## Commit messages
 
