@@ -164,6 +164,7 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
             "cacheWrite": 0.125,
         },
         "gpt-6-sol": {"input": 2, "output": 10, "cacheRead": 0.2, "cacheWrite": 2.5},
+        "gpt-6.1-sol": {"input": 2, "output": 10, "cacheRead": 0.1, "cacheWrite": 2.5},
         "gpt-daybreak-blue-latest": {
             "input": 4,
             "output": 20,
@@ -232,6 +233,7 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "command-r7b-12-2024": {"input": 0.0375, "output": 0.15},
         "command-r7b-arabic-02-2025": {"input": 0.0375, "output": 0.15},
         "north-mini-code-1-0": {"input": 0, "output": 0},
+        "north-small-translate-09-2026": {"input": 0, "output": 0},
     },
     "groq": {
         "allam-2-7b": {"input": 0, "output": 0},
@@ -267,7 +269,7 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
             "output": 0.6,
             "cacheRead": 0.003,
         },
-        "deepseek-v4-pro": {"input": 0.435, "output": 0.87, "cacheRead": 0.003625},
+        "deepseek-v4-pro": {"input": 0.66, "output": 1.98, "cacheRead": 0.022},
     },
     "perplexity": {
         "sonar": {"input": 1, "output": 1},
