@@ -789,7 +789,7 @@ wheels = [
 
 [[package]]
 name = "llm-catalog-core"
-version = "0.9.0"
+version = "0.9.1"
 source = { editable = "../llm-catalog-core" }
 dependencies = [
     { name = "httpx" },
