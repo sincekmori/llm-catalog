@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.9.1...llm-catalog-core-v0.10.0) (2026-10-10)
+
+
+### Features
+
+* support Python 3.15 in llm-catalog-core, llm-catalog-pydantic-ai, and llm-catalog-ai-sdk, and cap llm-catalog-litellm at Python &lt;3.15 to mirror LiteLLM's own requires-python ([1a9126b](https://github.com/sincekmori/llm-catalog/commit/1a9126bb4238f84f683f04db625003760c06390b))
+
 ## [0.9.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.9.0...llm-catalog-core-v0.9.1) (2026-10-06)
 
 
