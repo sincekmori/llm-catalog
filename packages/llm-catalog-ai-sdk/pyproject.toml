@@ -23,7 +23,7 @@ dependencies = [
     # Pre-1.0 core treats minor bumps as breaking, so pin to the minor line the
     # adapter is developed and tested against. The `httpx2` extra brings the
     # httpx2 flavour of GatewayTransport (llm_catalog.core.transport2).
-    "llm-catalog-core[httpx2]>=0.9.0,<0.10",
+    "llm-catalog-core[httpx2]>=0.10.0,<0.11",
     # The AI SDK for Python is in public beta and may break its API in any 0.x
     # minor, so pin to the minor line this adapter is tested against and raise
     # the range deliberately. The extras pull in the official OpenAI and

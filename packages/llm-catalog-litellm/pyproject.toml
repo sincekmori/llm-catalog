@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     # Pre-1.0 core treats minor bumps as breaking, so pin to the minor line the
     # adapter is developed and tested against.
-    "llm-catalog-core>=0.9.0,<0.10",
+    "llm-catalog-core>=0.10.0,<0.11",
     # Floor at the verified version (also past the 1.82.7/1.82.8 supply-chain incident).
     # LiteLLM is still built on httpx and `openai<3`, so this adapter uses the
     # httpx flavour of GatewayTransport (llm_catalog.core.transport).

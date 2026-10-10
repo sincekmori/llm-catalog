@@ -24,7 +24,7 @@ dependencies = [
     # adapter is developed and tested against.
     # The `httpx2` extra brings the httpx2 flavour of GatewayTransport
     # (llm_catalog.core.transport2), added in core 0.9.
-    "llm-catalog-core[httpx2]>=0.9.0,<0.10",
+    "llm-catalog-core[httpx2]>=0.10.0,<0.11",
     # Floor at the verified version. Pydantic AI moved its providers from httpx
     # to httpx2 in 2.32, and the SDKs it wraps (openai>=3, anthropic>=1) reject
     # or deprecate httpx clients, so this adapter only builds httpx2 clients.
