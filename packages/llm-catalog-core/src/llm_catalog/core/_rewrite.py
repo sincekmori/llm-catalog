@@ -57,7 +57,7 @@ from .resolve import ResolvedModel
 __all__ = ["RewriteMixin"]
 
 # Matches the model id and operation in a google-genai URL path, e.g.
-# "/v1beta/models/gemini-2.5-pro:streamGenerateContent".
+# "/v1beta/models/gemini-3.8-flash:streamGenerateContent".
 _GOOGLE_PATH = re.compile(r"/models/(?P<model>[^:/]+):(?P<action>[A-Za-z]+)")
 
 

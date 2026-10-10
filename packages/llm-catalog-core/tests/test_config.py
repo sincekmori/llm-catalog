@@ -209,7 +209,11 @@ def test_compatible_options_accepted_on_backend(config_dict: dict[str, Any]) -> 
 def test_compatible_options_rejected_on_other_vendor(flags: dict[str, Any]) -> None:
     config = {
         "providers": [
-            {"id": "anthropic", "vendor": flags, "models": [{"id": "claude-sonnet-5"}]}
+            {
+                "id": "anthropic",
+                "vendor": flags,
+                "models": [{"id": "claude-sonnet-5-5"}],
+            }
         ],
         "roles": {},
     }

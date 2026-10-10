@@ -78,7 +78,7 @@ def config_dict() -> dict[str, Any]:
             {
                 # direct provider; vendor defaults to the provider id
                 "id": "anthropic",
-                "models": [{"id": "claude-sonnet-5"}],
+                "models": [{"id": "claude-sonnet-5-5"}],
             },
             {
                 # direct openai-compatible provider with a vendor block
@@ -98,7 +98,7 @@ def config_dict() -> dict[str, Any]:
             "respond": "examplegw:resp-openai",
             "reasoning": {"provider": "examplegw", "model": "light-anthropic"},
             "search": "examplegw:search-google",
-            "chat": "anthropic:claude-sonnet-5",
+            "chat": "anthropic:claude-sonnet-5-5",
             "bulk": "fireworks:gpt-oss-120b",
         },
     }

@@ -5,7 +5,7 @@
       "id": "anthropic",
       "models": [
         {
-          "id": "claude-sonnet-5",
+          "id": "claude-sonnet-5-5",
           "settings": {
             "temperature": 1
           }
@@ -89,7 +89,7 @@
     }
   ],
   "roles": {
-    "chat": "anthropic:claude-sonnet-5",
+    "chat": "anthropic:claude-sonnet-5-5",
     "bulk": "fireworks:accounts/fireworks/models/gpt-oss-120b",
     "fast": { "provider": "examplegw", "model": "light-openai" },
     "reasoning": "examplegw:light-anthropic",

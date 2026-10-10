@@ -79,7 +79,7 @@ See [`examples/ai-sdk-catalog.example.json`](examples/ai-sdk-catalog.example.jso
       "id": "anthropic",
       "models": [
         {
-          "id": "claude-sonnet-5",
+          "id": "claude-sonnet-5-5",
           "cost": { "input": 2, "output": 10, "cacheRead": 0.2, "cacheWrite": 2.5 }
         }
       ]
@@ -109,7 +109,7 @@ See [`examples/ai-sdk-catalog.example.json`](examples/ai-sdk-catalog.example.jso
     }
   ],
   "roles": {
-    "chat": "anthropic:claude-sonnet-5",
+    "chat": "anthropic:claude-sonnet-5-5",
     "fast": { "provider": "examplegw", "model": "light-openai" },
     "reasoning": "examplegw:light-anthropic",
     "search": "examplegw:search-google"

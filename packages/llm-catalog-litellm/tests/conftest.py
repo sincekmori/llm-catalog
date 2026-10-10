@@ -53,13 +53,13 @@ def config_dict() -> dict[str, Any]:
                 # is not a vendor, so spell it out with the string shorthand)
                 "id": "claude-direct",
                 "vendor": "anthropic",
-                "models": [{"id": "claude-sonnet-5"}],
+                "models": [{"id": "claude-sonnet-5-5"}],
             },
         ],
         "roles": {
             "fast": {"provider": "examplegw", "model": "light-openai"},
             "reasoning": "examplegw:light-anthropic",
-            "chat": "claude-direct:claude-sonnet-5",
+            "chat": "claude-direct:claude-sonnet-5-5",
         },
     }
 

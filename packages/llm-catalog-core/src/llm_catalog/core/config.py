@@ -365,7 +365,7 @@ class Provider(BaseModel):
 
     model_config = _MODEL_CONFIG
 
-    id: _NonEmptyStr  # becomes the key prefix => "openai:gpt-5.6"
+    id: _NonEmptyStr  # becomes the key prefix => "openai:gpt-6-astra"
     vendor: VendorName | VendorBlock | None = None  # direct providers only
     gateway: Gateway | None = None  # gateway providers only
     settings: ModelSettings | None = None
@@ -391,8 +391,8 @@ def parse_role_ref(ref: RoleRef) -> RoleTarget:
     """Normalize a role reference to its ``RoleTarget`` form.
 
     The string shorthand splits at the **first** ``:``, so model ids may
-    contain colons (``"ollama:qwen3.6:35b"`` -> provider ``ollama``, model
-    ``qwen3.6:35b``).
+    contain colons (``"ollama:qwen3.8:27b"`` -> provider ``ollama``, model
+    ``qwen3.8:27b``).
     """
     if isinstance(ref, str):
         provider, _, model = ref.partition(":")

@@ -76,14 +76,14 @@ def direct_config_dict() -> dict[str, Any]:
             {
                 # vendor defaults to the provider id
                 "id": "anthropic",
-                "models": [{"id": "claude-sonnet-5"}],
+                "models": [{"id": "claude-sonnet-5-5"}],
             },
             {
                 # string shorthand
                 "id": "oai",
                 "vendor": "openai",
                 "settings": {"temperature": 0.7},
-                "models": [{"id": "gpt-5.6"}, {"id": "gpt-5.6-mini", "api": "chat"}],
+                "models": [{"id": "gpt-6-astra"}, {"id": "gpt-6-luna", "api": "chat"}],
             },
             {
                 # full vendor block (openai-compatible requires a baseURL)
@@ -100,8 +100,8 @@ def direct_config_dict() -> dict[str, Any]:
             },
         ],
         "roles": {
-            "chat": "anthropic:claude-sonnet-5",
-            "fast": "oai:gpt-5.6-mini",
+            "chat": "anthropic:claude-sonnet-5-5",
+            "fast": "oai:gpt-6-luna",
             "bulk": {
                 "provider": "fireworks",
                 "model": "accounts/fireworks/models/gpt-oss-120b",
@@ -129,9 +129,9 @@ def advanced_config_dict() -> dict[str, Any]:
                     "providerOptions": {"openai": {"reasoningEffort": "low"}},
                 },
                 "models": [
-                    {"id": "gpt-5.6"},
+                    {"id": "gpt-6-astra"},
                     {
-                        "id": "gpt-5.6-luna",
+                        "id": "gpt-6-luna",
                         "settings": {
                             "temperature": 0.2,
                             "providerOptions": {"openai": {"parallelToolCalls": False}},
@@ -141,7 +141,7 @@ def advanced_config_dict() -> dict[str, Any]:
             },
             {
                 "id": "anthropic",
-                "models": [{"id": "claude-sonnet-5", "settings": {"temperature": 1}}],
+                "models": [{"id": "claude-sonnet-5-5", "settings": {"temperature": 1}}],
             },
             {
                 "id": "fireworks",
@@ -185,15 +185,15 @@ def advanced_config_dict() -> dict[str, Any]:
                     },
                 },
                 "models": [
-                    {"id": "claude-opus-4-8", "backend": "claude-eu"},
-                    {"id": "gemini-3.5-flash", "backend": "gemini", "slug": "flash"},
+                    {"id": "claude-opus-5-5", "backend": "claude-eu"},
+                    {"id": "gemini-3.8-flash", "backend": "gemini", "slug": "flash"},
                 ],
             },
         ],
         "roles": {
-            "chat": "anthropic:claude-sonnet-5",
-            "search": "acme:gemini-3.5-flash",
-            "summarize": "openai:gpt-5.6-luna",
+            "chat": "anthropic:claude-sonnet-5-5",
+            "search": "acme:gemini-3.8-flash",
+            "summarize": "openai:gpt-6-luna",
             "bulk": "fireworks:accounts/fireworks/models/gpt-oss-120b",
         },
     }

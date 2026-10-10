@@ -68,11 +68,11 @@ def config_dict() -> dict[str, Any]:
             {
                 # direct provider; vendor defaults to the provider id
                 "id": "anthropic",
-                "models": [{"id": "claude-sonnet-5"}],
+                "models": [{"id": "claude-sonnet-5-5"}],
             },
             {
                 "id": "openai",
-                "models": [{"id": "gpt-5.6"}, {"id": "gpt-5.6-chat", "api": "chat"}],
+                "models": [{"id": "gpt-6-astra"}, {"id": "gpt-6-luna", "api": "chat"}],
             },
             {
                 # direct openai-compatible provider with a vendor block
@@ -91,9 +91,9 @@ def config_dict() -> dict[str, Any]:
             "fast": {"provider": "examplegw", "model": "light-openai"},
             "respond": "examplegw:resp-openai",
             "reasoning": "examplegw:light-anthropic",
-            "chat": "anthropic:claude-sonnet-5",
-            "direct-responses": "openai:gpt-5.6",
-            "direct-chat": "openai:gpt-5.6-chat",
+            "chat": "anthropic:claude-sonnet-5-5",
+            "direct-responses": "openai:gpt-6-astra",
+            "direct-chat": "openai:gpt-6-luna",
             "bulk": "fireworks:gpt-oss-120b",
         },
     }

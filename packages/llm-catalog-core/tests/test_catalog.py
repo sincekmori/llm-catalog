@@ -238,8 +238,8 @@ def test_non_builtin_direct_vendor_resolves(
     # the adapters reject it at use time (mirroring ai-sdk-catalog, where such
     # a provider needs a code-level resolve override).
     direct_config_dict["providers"].append(
-        {"id": "bedrock", "models": [{"id": "claude-opus-4-8"}]}
+        {"id": "bedrock", "models": [{"id": "claude-opus-5-5"}]}
     )
-    rm = Catalog(direct_config_dict).resolve_key("bedrock:claude-opus-4-8")
+    rm = Catalog(direct_config_dict).resolve_key("bedrock:claude-opus-5-5")
     assert rm.kind == "direct"
     assert rm.vendor == "bedrock"

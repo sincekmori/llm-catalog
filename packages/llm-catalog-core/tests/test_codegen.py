@@ -102,8 +102,8 @@ def test_direct_providers(direct_config_dict: dict[str, Any]) -> None:
     out = generate(direct_config_dict)
     by_name = {m["model_name"]: m["litellm_params"] for m in out["model_list"]}
 
-    plain = by_name["anthropic/claude-sonnet-5"]
-    assert plain["model"] == "anthropic/claude-sonnet-5"
+    plain = by_name["anthropic/claude-sonnet-5-5"]
+    assert plain["model"] == "anthropic/claude-sonnet-5-5"
     # no endpoint/key overrides -> LiteLLM's own defaults apply
     assert "api_base" not in plain
     assert "api_key" not in plain

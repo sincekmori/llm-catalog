@@ -195,7 +195,7 @@ def test_register_warns_on_builtin_provider_id_collision(config_dict) -> None:
     from llm_catalog.litellm import ChatCatalogLLM, ProviderIdCollisionWarning
 
     config_dict["providers"][1]["id"] = "anthropic"  # collides with a built-in
-    config_dict["roles"]["chat"] = "anthropic:claude-sonnet-5"
+    config_dict["roles"]["chat"] = "anthropic:claude-sonnet-5-5"
     original_handler = mod.handler
     mod.handler = ChatCatalogLLM(catalog=Catalog(config_dict))
     try:

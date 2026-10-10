@@ -16,28 +16,28 @@ def _catalog(providers: list[dict[str, Any]]) -> Catalog:
 
 
 def test_fills_direct_provider_cost_from_snapshot() -> None:
-    cat = _catalog([{"id": "anthropic", "models": [{"id": "claude-sonnet-5"}]}])
-    sheet = MODEL_COSTS["anthropic"]["claude-sonnet-5"]
-    rm = cat.resolve_key("anthropic:claude-sonnet-5")
+    cat = _catalog([{"id": "anthropic", "models": [{"id": "claude-sonnet-5-5"}]}])
+    sheet = MODEL_COSTS["anthropic"]["claude-sonnet-5-5"]
+    rm = cat.resolve_key("anthropic:claude-sonnet-5-5")
     assert rm.cost is not None
     assert rm.cost.as_dict() == sheet
 
 
 def test_resolves_vendor_through_vendor_block_not_provider_id() -> None:
     cat = _catalog(
-        [{"id": "my-proxy", "vendor": "openai", "models": [{"id": "gpt-4o"}]}]
+        [{"id": "my-proxy", "vendor": "openai", "models": [{"id": "gpt-6-astra"}]}]
     )
-    rm = cat.resolve_key("my-proxy:gpt-4o")
+    rm = cat.resolve_key("my-proxy:gpt-6-astra")
     assert rm.cost is not None
-    assert rm.cost.as_dict() == MODEL_COSTS["openai"]["gpt-4o"]
+    assert rm.cost.as_dict() == MODEL_COSTS["openai"]["gpt-6-astra"]
 
 
 def test_explicit_cost_in_config_wins() -> None:
     cost = {"input": 1, "output": 2}
     cat = _catalog(
-        [{"id": "anthropic", "models": [{"id": "claude-sonnet-5", "cost": cost}]}]
+        [{"id": "anthropic", "models": [{"id": "claude-sonnet-5-5", "cost": cost}]}]
     )
-    rm = cat.resolve_key("anthropic:claude-sonnet-5")
+    rm = cat.resolve_key("anthropic:claude-sonnet-5-5")
     assert rm.cost is not None
     assert rm.cost.as_dict() == {"input": 1.0, "output": 2.0}
 
@@ -50,8 +50,8 @@ def test_leaves_cost_none_for_an_unlisted_model_id() -> None:
 def test_leaves_cost_none_for_a_non_vendor_provider_id() -> None:
     # A direct provider whose id names no bundled vendor still resolves; the
     # snapshot has no sheet for it even when the model id itself is known.
-    cat = _catalog([{"id": "local-llm", "models": [{"id": "gpt-4o"}]}])
-    assert cat.resolve_key("local-llm:gpt-4o").cost is None
+    cat = _catalog([{"id": "local-llm", "models": [{"id": "gpt-6-astra"}]}])
+    assert cat.resolve_key("local-llm:gpt-6-astra").cost is None
 
 
 def test_leaves_cost_none_for_the_openai_compatible_vendor() -> None:
@@ -64,22 +64,22 @@ def test_leaves_cost_none_for_the_openai_compatible_vendor() -> None:
                     "id": "openai-compatible",
                     "baseURL": "http://localhost:1234/v1",
                 },
-                "models": [{"id": "gpt-4o"}],
+                "models": [{"id": "gpt-6-astra"}],
             }
         ]
     )
-    assert cat.resolve_key("local:gpt-4o").cost is None
+    assert cat.resolve_key("local:gpt-6-astra").cost is None
 
 
 def test_fills_gateway_model_cost_from_its_backend_vendor(
     config_dict: dict[str, Any],
 ) -> None:
     config_dict["providers"][0]["models"].append(
-        {"id": "claude-sonnet-5", "backend": "anthropic"}
+        {"id": "claude-sonnet-5-5", "backend": "anthropic"}
     )
-    rm = Catalog(config_dict).resolve_key("examplegw:claude-sonnet-5")
+    rm = Catalog(config_dict).resolve_key("examplegw:claude-sonnet-5-5")
     assert rm.cost is not None
-    assert rm.cost.as_dict() == MODEL_COSTS["anthropic"]["claude-sonnet-5"]
+    assert rm.cost.as_dict() == MODEL_COSTS["anthropic"]["claude-sonnet-5-5"]
 
 
 def test_snapshot_sanity() -> None:
