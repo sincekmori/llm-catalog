@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.10.0...llm-catalog-core-v0.10.1) (2026-10-10)
+
+
+### Documentation
+
+* move every example, test and comment to the current model generation (claude-sonnet-5-5, claude-opus-5-5, gpt-6-astra, gpt-6-luna, gemini-3.8-flash, qwen3.8) to match ai-sdk-catalog ([e0b5e2f](https://github.com/sincekmori/llm-catalog/commit/e0b5e2f22084da57333942d7a5fa43c5f019384c))
+
 ## [0.10.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.9.1...llm-catalog-core-v0.10.0) (2026-10-10)
 
 
