@@ -3,7 +3,7 @@
 ## Development
 
 Python 3.12+ with [uv](https://docs.astral.sh/uv/).
-Local development runs on 3.12 (the floor of the supported range) so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.14 matrix.
+Local development runs on 3.12 (the floor of the supported range) so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.15 matrix for the workspace and 3.12–3.14 for `llm-catalog-litellm`, which mirrors LiteLLM's `requires-python <3.15` cap.
 
 The repository holds two uv projects.
 The workspace at the root covers `llm-catalog-core`, `llm-catalog-pydantic-ai`, and `llm-catalog-ai-sdk`.

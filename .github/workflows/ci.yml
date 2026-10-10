@@ -50,7 +50,13 @@ jobs:
       matrix:
         project: [".", "packages/llm-catalog-litellm"]
         # Every supported CPython (matches requires-python >=3.12).
-        python: ["3.12", "3.13", "3.14"]
+        python: ["3.12", "3.13", "3.14", "3.15"]
+        exclude:
+          # LiteLLM declares `requires-python <3.15` (and its `fastuuid`
+          # dependency has no 3.15 wheels), so llm-catalog-litellm mirrors
+          # that cap until LiteLLM lifts it.
+          - project: "packages/llm-catalog-litellm"
+            python: "3.15"
     defaults:
       run:
         working-directory: ${{ matrix.project }}

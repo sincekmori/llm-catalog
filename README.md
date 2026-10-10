@@ -23,7 +23,7 @@ The same generic code therefore works for any gateway that exposes native provid
 ## Packages
 
 Four independently versioned distributions share the PEP 420 namespace `llm_catalog`.
-All of them require Python 3.12+.
+All of them require Python 3.12+; `llm-catalog-litellm` additionally caps at `<3.15`, mirroring LiteLLM's own `requires-python`.
 
 | Distribution | PyPI | Import | Depends on | HTTP client |
 |---|---|---|---|---|
@@ -266,7 +266,7 @@ uv run pytest
 uv run ty check
 ```
 
-Local dev runs on Python 3.12 (the floor of the supported range, pinned in `.python-version`), so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.14 matrix for both projects.
+Local dev runs on Python 3.12 (the floor of the supported range, pinned in `.python-version`), so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.15 matrix for the workspace and 3.12–3.14 for `llm-catalog-litellm` (LiteLLM caps `requires-python` at `<3.15`).
 Both projects set `exclude-newer = "7 days"`, so `uv lock --upgrade` never resolves to a release younger than a week.
 
 ## Releases
