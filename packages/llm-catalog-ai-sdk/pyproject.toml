@@ -28,7 +28,7 @@ dependencies = [
     # minor, so pin to the minor line this adapter is tested against and raise
     # the range deliberately. The extras pull in the official OpenAI and
     # Anthropic SDKs, which `ai` loads lazily for its direct providers.
-    "ai[anthropic,openai]>=0.7.0,<0.8",
+    "ai[anthropic,openai]>=0.7.0,<0.9",
     "httpx2>=2.12",
 ]
 

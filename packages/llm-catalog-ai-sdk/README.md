@@ -43,7 +43,7 @@ Every other combination raises `LLMCatalogError` when the model is built; nothin
 ## Beta notice
 
 `ai` is in public beta and may change its API in any 0.x minor release.
-This adapter pins the `ai` minor line it is tested against (currently 0.7.x) and uses only `ai`'s documented surface: `ai.get_provider` with `base_url` / `api_key` / `client`, `ai.Model` with an explicit `protocol`, and `ai.InferenceRequestParams`.
+This adapter pins the `ai` minor line it is tested against (currently 0.8.x) and uses only `ai`'s documented surface: `ai.get_provider` with `base_url` / `api_key` / `client`, `ai.Model` with an explicit `protocol`, and `ai.InferenceRequestParams`.
 Its tests send requests through `ai` to a mock transport, so an `ai` release that stops honouring the injected client fails CI instead of failing at runtime.
 
 Requires Python 3.12+ (the floor of `ai`).
