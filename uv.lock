@@ -955,7 +955,7 @@ requires-dist = [
 
 [[package]]
 name = "llm-catalog-core"
-version = "0.10.1"
+version = "0.10.2"
 source = { editable = "packages/llm-catalog-core" }
 dependencies = [
     { name = "httpx" },
