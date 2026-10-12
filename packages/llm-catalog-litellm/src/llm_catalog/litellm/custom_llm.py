@@ -42,7 +42,7 @@ import httpx
 from openai import AsyncOpenAI, OpenAI
 
 import litellm
-from litellm import CustomLLM
+from litellm import CustomLLM, CustomStreamWrapper
 from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from litellm.types.llms.openai import ChatCompletionUsageBlock
 from litellm.types.utils import GenericStreamingChunk, ModelResponse
@@ -253,13 +253,15 @@ class ChatCatalogLLM(CustomLLM):
         client: Any = None,
     ) -> ModelResponse:
         rm, inner_model, params = self._prep(model, optional_params, litellm_params)
-        return litellm.completion(
-            model=inner_model,
-            messages=messages,
-            api_base=rm.base_url,
-            api_key=rm.api_key(),
-            client=self._sync_client(rm),
-            **params,
+        return _as_response(
+            litellm.completion(
+                model=inner_model,
+                messages=messages,
+                api_base=rm.base_url,
+                api_key=rm.api_key(),
+                client=self._sync_client(rm),
+                **params,
+            )
         )
 
     async def acompletion(
@@ -282,13 +284,15 @@ class ChatCatalogLLM(CustomLLM):
         client: Any = None,
     ) -> ModelResponse:
         rm, inner_model, params = self._prep(model, optional_params, litellm_params)
-        return await litellm.acompletion(
-            model=inner_model,
-            messages=messages,
-            api_base=rm.base_url,
-            api_key=rm.api_key(),
-            client=self._async_client(rm),
-            **params,
+        return _as_response(
+            await litellm.acompletion(
+                model=inner_model,
+                messages=messages,
+                api_base=rm.base_url,
+                api_key=rm.api_key(),
+                client=self._async_client(rm),
+                **params,
+            )
         )
 
     def streaming(
@@ -311,14 +315,16 @@ class ChatCatalogLLM(CustomLLM):
         client: Any = None,
     ) -> Iterator[GenericStreamingChunk]:
         rm, inner_model, params = self._prep(model, optional_params, litellm_params)
-        response = litellm.completion(
-            model=inner_model,
-            messages=messages,
-            api_base=rm.base_url,
-            api_key=rm.api_key(),
-            client=self._sync_client(rm),
-            stream=True,
-            **_stream_params(rm, params),
+        response = _as_stream(
+            litellm.completion(
+                model=inner_model,
+                messages=messages,
+                api_base=rm.base_url,
+                api_key=rm.api_key(),
+                client=self._sync_client(rm),
+                stream=True,
+                **_stream_params(rm, params),
+            )
         )
         for chunk in response:
             yield _to_generic_chunk(chunk)
@@ -343,17 +349,40 @@ class ChatCatalogLLM(CustomLLM):
         client: Any = None,
     ) -> AsyncIterator[GenericStreamingChunk]:
         rm, inner_model, params = self._prep(model, optional_params, litellm_params)
-        response = await litellm.acompletion(
-            model=inner_model,
-            messages=messages,
-            api_base=rm.base_url,
-            api_key=rm.api_key(),
-            client=self._async_client(rm),
-            stream=True,
-            **_stream_params(rm, params),
+        response = _as_stream(
+            await litellm.acompletion(
+                model=inner_model,
+                messages=messages,
+                api_base=rm.base_url,
+                api_key=rm.api_key(),
+                client=self._async_client(rm),
+                stream=True,
+                **_stream_params(rm, params),
+            )
         )
         async for chunk in response:
             yield _to_generic_chunk(chunk)
+
+
+def _as_response(result: object) -> ModelResponse:
+    """Narrow a non-streaming LiteLLM result to ``ModelResponse``.
+
+    ``litellm.completion`` / ``acompletion`` are typed as returning either a
+    ``ModelResponse`` or a stream wrapper; without ``stream=True`` only the
+    former can come back, so anything else is a LiteLLM contract violation.
+    """
+    if not isinstance(result, ModelResponse):
+        msg = f"LiteLLM returned {type(result).__name__} for a non-streaming call"
+        raise TypeError(msg)
+    return result
+
+
+def _as_stream(result: object) -> CustomStreamWrapper:
+    """Narrow a ``stream=True`` LiteLLM result to its stream wrapper."""
+    if not isinstance(result, CustomStreamWrapper):
+        msg = f"LiteLLM returned {type(result).__name__} for a streaming call"
+        raise TypeError(msg)
+    return result
 
 
 def _stream_params(rm: ResolvedModel, params: dict[str, Any]) -> dict[str, Any]:

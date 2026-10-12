@@ -7,6 +7,8 @@ import httpx
 import litellm
 import pytest
 import respx
+from litellm import CustomStreamWrapper
+from litellm.types.utils import ModelResponse
 
 from llm_catalog.core import Catalog
 
@@ -58,6 +60,7 @@ def test_in_process_completion_openai_form(registered) -> None:
         )
     assert route.called
     # OpenAI-form response
+    assert isinstance(resp, ModelResponse)
     assert resp.choices[0].message.content == "ok-anthropic"
     assert resp.object == "chat.completion"
 
@@ -72,6 +75,7 @@ async def test_in_process_acompletion(registered) -> None:
             messages=[{"role": "user", "content": "hi"}],
         )
     assert route.called
+    assert isinstance(resp, ModelResponse)
     assert resp.choices[0].message.content == "ok-openai"
 
 
@@ -90,6 +94,7 @@ async def test_streaming_yields_openai_form(registered) -> None:
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
         )
+        assert isinstance(resp, CustomStreamWrapper)
         async for chunk in resp:
             piece = chunk.choices[0].delta.content
             if piece:
@@ -129,6 +134,7 @@ async def test_include_usage_adds_stream_options(registered, config_dict) -> Non
                 messages=[{"role": "user", "content": "hi"}],
                 stream=True,
             )
+            assert isinstance(resp, CustomStreamWrapper)
             async for _ in resp:
                 pass
     flagged_body = json.loads(flagged.calls[0].request.content)
@@ -187,6 +193,7 @@ def test_direct_provider_reaches_vendor_url(registered) -> None:
             messages=[{"role": "user", "content": "hi"}],
         )
     assert route.called
+    assert isinstance(resp, ModelResponse)
     assert resp.choices[0].message.content == "ok-anthropic"
 
 
