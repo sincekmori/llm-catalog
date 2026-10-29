@@ -1,5 +1,5 @@
 {
-  "packages/llm-catalog-core": "0.10.3",
+  "packages/llm-catalog-core": "0.10.4",
   "packages/llm-catalog-pydantic-ai": "0.7.1",
   "packages/llm-catalog-ai-sdk": "0.2.1",
   "packages/llm-catalog-litellm": "0.8.1"
