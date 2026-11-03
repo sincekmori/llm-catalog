@@ -169,6 +169,12 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         },
         "gpt-6-sol": {"input": 2, "output": 10, "cacheRead": 0.2, "cacheWrite": 2.5},
         "gpt-6.1-sol": {"input": 2, "output": 10, "cacheRead": 0.1, "cacheWrite": 2.5},
+        "gpt-6.1-terra": {
+            "input": 1,
+            "output": 5,
+            "cacheRead": 0.05,
+            "cacheWrite": 1.25,
+        },
         "gpt-daybreak-blue-latest": {
             "input": 4,
             "output": 20,
@@ -195,6 +201,7 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
     "mistral": {
         "codestral-2508": {"input": 0.3, "output": 0.9, "cacheRead": 0.03},
         "codestral-latest": {"input": 0.3, "output": 0.9, "cacheRead": 0.03},
+        "deepseek-v4-1-flash-1017": {"input": 0.3, "output": 1.2, "cacheRead": 0.007},
         "devstral-2512": {"input": 0.4, "output": 2},
         "devstral-latest": {"input": 0.4, "output": 2},
         "devstral-medium-latest": {"input": 0.4, "output": 2},
@@ -209,7 +216,8 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "ministral-8b-latest": {"input": 0.15, "output": 0.15, "cacheRead": 0.015},
         "mistral-embed": {"input": 0.1, "output": 0},
         "mistral-large-2512": {"input": 0.5, "output": 1.5, "cacheRead": 0.05},
-        "mistral-large-4": {"input": 1.36, "output": 4.18, "cacheRead": 0.14},
+        "mistral-large-4": {"input": 0.7, "output": 2.1, "cacheRead": 0.07},
+        "mistral-large-4-0-8": {"input": 0.7, "output": 2.1, "cacheRead": 0.07},
         "mistral-large-latest": {"input": 0.5, "output": 1.5, "cacheRead": 0.05},
         "mistral-medium-2505": {"input": 0.4, "output": 2},
         "mistral-medium-2508": {"input": 0.4, "output": 2},
@@ -300,9 +308,7 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "gemini-2.5-pro": {"input": 1.25, "output": 10, "cacheRead": 0.125},
         "gemini-3-flash-preview": {"input": 0.5, "output": 3, "cacheRead": 0.05},
         "gemini-3-pro-image": {"input": 2, "output": 120},
-        "gemini-3-pro-image-preview": {"input": 2, "output": 120},
         "gemini-3.1-flash-image": {"input": 0.5, "output": 60},
-        "gemini-3.1-flash-image-preview": {"input": 0.5, "output": 60},
         "gemini-3.1-flash-lite": {"input": 0.25, "output": 1.5, "cacheRead": 0.025},
         "gemini-3.1-flash-lite-image": {"input": 0.25, "output": 30},
         "gemini-3.1-flash-lite-preview": {
