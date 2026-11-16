@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-litellm-v0.8.1...llm-catalog-litellm-v0.9.0) (2026-11-16)
+
+
+### Features
+
+* **litellm:** support Python 3.15 and join the uv workspace by requiring LiteLLM 1.109 or newer ([3325847](https://github.com/sincekmori/llm-catalog/commit/33258471db0325aa90e77851e4233034e413efcf))
+
 ## [0.8.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-litellm-v0.8.0...llm-catalog-litellm-v0.8.1) (2026-10-10)
 
 
