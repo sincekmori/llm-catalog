@@ -144,9 +144,9 @@ testpaths = [
     "packages/llm-catalog-ai-sdk/tests",
 ]
 
-# Supply-chain guard: never resolve to a release younger than 7 days. uv stores
+# Supply-chain guard: never resolve to a release younger than 1 day. uv stores
 # this as a relative span in uv.lock, so `uv sync --locked` stays valid as time
 # passes; `uv lock --upgrade` (and Dependabot) only move to releases that have
-# been public for at least a week.
+# been public for at least a day.
 [tool.uv]
-exclude-newer = "7 days"
+exclude-newer = "1 day"

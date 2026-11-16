@@ -56,9 +56,9 @@ namespace = true
 [tool.uv.sources]
 llm-catalog-core = { path = "../llm-catalog-core", editable = true }
 
-# Same supply-chain guard as the workspace: no release younger than 7 days.
+# Same supply-chain guard as the workspace: no release younger than 1 day.
 [tool.uv]
-exclude-newer = "7 days"
+exclude-newer = "1 day"
 
 [dependency-groups]
 dev = [

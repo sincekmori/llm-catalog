@@ -267,7 +267,7 @@ uv run ty check
 ```
 
 Local dev runs on Python 3.12 (the floor of the supported range, pinned in `.python-version`), so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.15 matrix for the workspace and 3.12–3.14 for `llm-catalog-litellm` (LiteLLM caps `requires-python` at `<3.15`).
-Both projects set `exclude-newer = "7 days"`, so `uv lock --upgrade` never resolves to a release younger than a week.
+Both projects set `exclude-newer = "1 day"`, so `uv lock --upgrade` never resolves to a release younger than a day.
 
 ## Releases
 

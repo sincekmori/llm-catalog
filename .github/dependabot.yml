@@ -1,8 +1,8 @@
 # Keep GitHub Actions and Python dependencies current automatically, so versions
 # don't silently fall behind. Dependabot opens weekly update PRs; CI gates them.
 #
-# Python updates wait until a release has been public for 7 days (`cooldown`),
-# matching the `exclude-newer = "7 days"` supply-chain guard in the pyprojects.
+# Python updates wait until a release has been public for 1 day (`cooldown`),
+# matching the `exclude-newer = "1 day"` supply-chain guard in the pyprojects.
 # Security updates are exempt from the cooldown.
 version: 2
 updates:
@@ -20,7 +20,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 1
     groups:
       python:
         patterns: ["*"]
@@ -31,7 +31,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 1
     groups:
       python-litellm:
         patterns: ["*"]
