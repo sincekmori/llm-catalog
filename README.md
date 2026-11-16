@@ -29,7 +29,7 @@ All of them require Python 3.12+.
 |---|---|---|---|---|
 | [`llm-catalog-core`](packages/llm-catalog-core) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-core)](https://pypi.org/project/llm-catalog-core/) | `llm_catalog.core` | `pydantic`, `httpx` (`httpx2` optional) | both |
 | [`llm-catalog-pydantic-ai`](packages/llm-catalog-pydantic-ai) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-pydantic-ai)](https://pypi.org/project/llm-catalog-pydantic-ai/) | `llm_catalog.pydantic_ai` | core + `pydantic-ai>=2.51` | `httpx2` |
-| [`llm-catalog-ai-sdk`](packages/llm-catalog-ai-sdk) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-ai-sdk)](https://pypi.org/project/llm-catalog-ai-sdk/) | `llm_catalog.ai_sdk` | core + `ai` 0.7.x | `httpx2` |
+| [`llm-catalog-ai-sdk`](packages/llm-catalog-ai-sdk) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-ai-sdk)](https://pypi.org/project/llm-catalog-ai-sdk/) | `llm_catalog.ai_sdk` | core + `ai` 0.7.x–0.9.x | `httpx2` |
 | [`llm-catalog-litellm`](packages/llm-catalog-litellm) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-litellm)](https://pypi.org/project/llm-catalog-litellm/) | `llm_catalog.litellm` | core + `litellm>=1.109.0` | `httpx` |
 
 `llm-catalog-core` holds the config schema, validation, resolver, `GatewayTransport`, and LiteLLM codegen, and knows no runtime (and touches no filesystem).
