@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """The ``httpx`` flavour of the gateway transport.
 
-For vendor SDKs still built on ``httpx`` (e.g. LiteLLM with ``openai<3``). SDKs
-that moved to ``httpx2`` (``openai>=3``, ``anthropic>=1``) reject or deprecate
-``httpx`` clients — use the identical classes in
+For runtimes still built on ``httpx`` (e.g. LiteLLM). SDKs that moved to
+``httpx2`` (``openai>=3``, ``anthropic>=1``) are typed for ``httpx2`` clients,
+and some reject ``httpx`` ones outright — use the identical classes in
 :mod:`llm_catalog.core.transport2` for those.
 
 What the transport rewrites, and how the ``{slug}`` placeholder is filled, is

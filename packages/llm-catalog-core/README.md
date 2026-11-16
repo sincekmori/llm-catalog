@@ -25,7 +25,7 @@ To keep using YAML, parse it yourself (e.g. `yaml.safe_load`) and pass the resul
 
 `GatewayTransport` comes in two flavours with identical behaviour, because vendor SDKs are split between `httpx` and its continuation `httpx2`:
 
-- `llm_catalog.core.transport` (also re-exported from `llm_catalog.core`) for `httpx` clients, e.g. LiteLLM with `openai<3`.
+- `llm_catalog.core.transport` (also re-exported from `llm_catalog.core`) for `httpx` clients, e.g. LiteLLM.
 - `llm_catalog.core.transport2` for `httpx2` clients (`openai>=3`, `anthropic>=1`, Pydantic AI, the AI SDK for Python); install the optional dependency with `pip install "llm-catalog-core[httpx2]"`.
 
 Build one for a resolved model with `GatewayTransport.for_model(inner, rm)`.
