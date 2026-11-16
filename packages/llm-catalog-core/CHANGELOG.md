@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.6](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.10.5...llm-catalog-core-v0.10.6) (2026-11-16)
+
+
+### Documentation
+
+* **core:** describe the httpx transport as the one LiteLLM uses regardless of the OpenAI SDK version ([fd45804](https://github.com/sincekmori/llm-catalog/commit/fd45804d55e6f947bb60feaecea4d6463953c419))
+
 ## [0.10.5](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.10.4...llm-catalog-core-v0.10.5) (2026-11-03)
 
 
