@@ -31,35 +31,15 @@ jobs:
         run: uv run ruff format --check .
       - name: Type check (ty, strict)
         run: uv run ty check packages
-      # llm-catalog-litellm is a standalone project (LiteLLM pins `openai<3`,
-      # which the workspace cannot share), so it is type-checked in its own
-      # environment. ruff above already covers its files.
-      - name: Type check llm-catalog-litellm (ty, strict)
-        working-directory: packages/llm-catalog-litellm
-        run: |
-          uv sync --locked
-          uv run ty check
 
-  # Both uv projects: the workspace at the root (llm-catalog-core,
-  # llm-catalog-pydantic-ai, llm-catalog-ai-sdk) and the standalone
-  # llm-catalog-litellm, each against its own lockfile.
+  # One uv workspace, one lockfile: all four distributions are tested together.
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        project: [".", "packages/llm-catalog-litellm"]
         # Every supported CPython (matches requires-python >=3.12).
         python: ["3.12", "3.13", "3.14", "3.15"]
-        exclude:
-          # LiteLLM declares `requires-python <3.15` (and its `fastuuid`
-          # dependency has no 3.15 wheels), so llm-catalog-litellm mirrors
-          # that cap until LiteLLM lifts it.
-          - project: "packages/llm-catalog-litellm"
-            python: "3.15"
-    defaults:
-      run:
-        working-directory: ${{ matrix.project }}
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
@@ -80,8 +60,6 @@ jobs:
         uses: astral-sh/setup-uv@v7
       - name: Build the workspace distributions
         run: uv build --all-packages --out-dir dist
-      - name: Build llm-catalog-litellm
-        run: uv build packages/llm-catalog-litellm --out-dir dist
       - uses: actions/upload-artifact@v7
         with:
           name: dist

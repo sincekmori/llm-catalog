@@ -8,24 +8,22 @@
 #   - llm-catalog-core         -> import llm_catalog.core         (workspace)
 #   - llm-catalog-pydantic-ai  -> import llm_catalog.pydantic_ai  (workspace)
 #   - llm-catalog-ai-sdk       -> import llm_catalog.ai_sdk       (workspace)
-#   - llm-catalog-litellm      -> import llm_catalog.litellm      (own project)
+#   - llm-catalog-litellm      -> import llm_catalog.litellm      (workspace)
 #
 # `llm_catalog` is a PEP 420 namespace package: no distribution ships
 # llm_catalog/__init__.py, so the subpackages merge into one namespace inside a
 # single venv.
 
 # A uv workspace resolves every member into ONE lockfile, so all members share
-# a single version of each dependency. LiteLLM still requires `openai<3` (the
-# `httpx` era) while the OpenAI / Anthropic SDKs, Pydantic AI and the AI SDK
-# for Python have moved to `httpx2` and `openai>=3`. Keeping
-# llm-catalog-litellm in the workspace would pin everyone to the old SDK line
-# and test the other adapters against versions their users never install, so
-# it is a standalone project with its own lockfile (packages/llm-catalog-litellm)
-# that depends on llm-catalog-core by path. Drop the `exclude` once LiteLLM
-# supports `openai>=3`.
+# a single version of each dependency. That works for all four distributions
+# since LiteLLM 1.109 accepts `openai>=3`: LiteLLM itself still talks `httpx`
+# while the OpenAI / Anthropic SDKs, Pydantic AI and the AI SDK for Python are
+# built on `httpx2`, but the two HTTP stacks install side by side. If a future
+# LiteLLM cap ever held the other adapters back on versions their users never
+# install, llm-catalog-litellm would have to leave the workspace again (as it
+# did while LiteLLM required `openai<3`).
 [tool.uv.workspace]
 members = ["packages/*"]
-exclude = ["packages/llm-catalog-litellm"]
 
 # Dev-time resolution: adapters depend on llm-catalog-core via the workspace
 # copy, not PyPI. The published wheels still carry the version constraint from
@@ -42,6 +40,8 @@ dev = [
     "ty>=0.0.73",
     "pytest>=9",
     "pytest-asyncio>=1.2",
+    # Test-only: mocks the `httpx` requests LiteLLM sends (llm-catalog-litellm).
+    "respx>=0.23",
     # Test-only: asserts the generated LiteLLM config (JSON) also parses as
     # YAML, the way LiteLLM's proxy loads it. The shipped packages use no YAML.
     "pyyaml>=6.0",
@@ -129,19 +129,13 @@ known-first-party = ["llm_catalog"]
 [tool.ty.environment]
 python-version = "3.12"
 
-# llm-catalog-litellm is a standalone project with its own environment (LiteLLM
-# is not installed here); type-check it from its own directory.
-[tool.ty.src]
-exclude = ["packages/llm-catalog-litellm"]
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-# llm-catalog-litellm is a standalone project: run its tests from its own
-# directory (`cd packages/llm-catalog-litellm && uv run pytest`).
 testpaths = [
     "packages/llm-catalog-core/tests",
     "packages/llm-catalog-pydantic-ai/tests",
     "packages/llm-catalog-ai-sdk/tests",
+    "packages/llm-catalog-litellm/tests",
 ]
 
 # Supply-chain guard: never resolve to a release younger than 1 day. uv stores

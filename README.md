@@ -23,14 +23,14 @@ The same generic code therefore works for any gateway that exposes native provid
 ## Packages
 
 Four independently versioned distributions share the PEP 420 namespace `llm_catalog`.
-All of them require Python 3.12+; `llm-catalog-litellm` additionally caps at `<3.15`, mirroring LiteLLM's own `requires-python`.
+All of them require Python 3.12+.
 
 | Distribution | PyPI | Import | Depends on | HTTP client |
 |---|---|---|---|---|
 | [`llm-catalog-core`](packages/llm-catalog-core) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-core)](https://pypi.org/project/llm-catalog-core/) | `llm_catalog.core` | `pydantic`, `httpx` (`httpx2` optional) | both |
 | [`llm-catalog-pydantic-ai`](packages/llm-catalog-pydantic-ai) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-pydantic-ai)](https://pypi.org/project/llm-catalog-pydantic-ai/) | `llm_catalog.pydantic_ai` | core + `pydantic-ai>=2.51` | `httpx2` |
 | [`llm-catalog-ai-sdk`](packages/llm-catalog-ai-sdk) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-ai-sdk)](https://pypi.org/project/llm-catalog-ai-sdk/) | `llm_catalog.ai_sdk` | core + `ai` 0.7.x | `httpx2` |
-| [`llm-catalog-litellm`](packages/llm-catalog-litellm) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-litellm)](https://pypi.org/project/llm-catalog-litellm/) | `llm_catalog.litellm` | core + `litellm>=1.90.0` | `httpx` |
+| [`llm-catalog-litellm`](packages/llm-catalog-litellm) | [![PyPI](https://img.shields.io/pypi/v/llm-catalog-litellm)](https://pypi.org/project/llm-catalog-litellm/) | `llm_catalog.litellm` | core + `litellm>=1.109.0` | `httpx` |
 
 `llm-catalog-core` holds the config schema, validation, resolver, `GatewayTransport`, and LiteLLM codegen, and knows no runtime (and touches no filesystem).
 The three adapters depend only on core; core imports no adapter.
@@ -41,9 +41,9 @@ A Pydantic AI user's environment and lockfile never reference `litellm`, and vic
 
 **Why two HTTP clients?**
 The Python LLM ecosystem is split between [`httpx`](https://github.com/encode/httpx) and [`httpx2`](https://github.com/pydantic/httpx2), its Pydantic-maintained continuation with the same API under a different import name.
-The official OpenAI (`>=3`) and Anthropic (`>=1`) SDKs, Pydantic AI, and the AI SDK for Python are built on `httpx2`; LiteLLM still requires `httpx` and `openai<3`.
+The official OpenAI (`>=3`) and Anthropic (`>=1`) SDKs, Pydantic AI, and the AI SDK for Python are built on `httpx2`; LiteLLM is still built on `httpx`, and hands the OpenAI SDK an `httpx` client, which `openai>=3` keeps accepting.
 Core therefore ships `GatewayTransport` in both flavours — `llm_catalog.core.transport` (`httpx`) and `llm_catalog.core.transport2` (`httpx2`, via the `llm-catalog-core[httpx2]` extra) — over one shared rewrite, and each adapter uses the one its runtime speaks.
-The split also means `llm-catalog-litellm` cannot share an environment with the other two adapters until LiteLLM supports `openai>=3`.
+The two stacks install side by side, so all three adapters can share one environment (LiteLLM accepts `openai>=3` since 1.109).
 
 ## Install
 
@@ -242,32 +242,26 @@ Confirm them before relying on them; the code documents the fallback at each poi
 4. Whether LiteLLM honours a custom client and the path rewrite takes effect (the plugin's route-1 strategy), verified against the mock gateway here for all three backends; the documented fallback (route 2) is hand-written native→OpenAI conversion.
 5. LiteLLM gotchas mitigated in code: provider-id/built-in collision (#23352, warned at `register()` — direct providers naturally named `openai`/`anthropic` route to LiteLLM's built-ins, not the handler) and per-model `litellm_params` not reaching the handler (#18216, the handler self-resolves).
 6. Pydantic AI output-mode symbols `NativeOutput` / `ToolOutput` / `PromptedOutput` (confirmed against the installed version).
-7. LiteLLM pinned `>=1.90.0` (the verified floor; also past the 1.82.7 / 1.82.8 supply-chain incident).
-8. uv workspace × PEP 420 namespace × editable install: after `uv sync`, the workspace members (`llm_catalog.core` / `.pydantic_ai` / `.ai_sdk`) import in one venv (covered by the test suite and CI).
+7. LiteLLM pinned `>=1.109.0` (the first release that supports Python 3.15 and accepts `openai>=3`, so the adapter shares an environment with the other two; also past the 1.82.7 / 1.82.8 supply-chain incident).
+8. uv workspace × PEP 420 namespace × editable install: after `uv sync`, the workspace members (`llm_catalog.core` / `.pydantic_ai` / `.ai_sdk` / `.litellm`) import in one venv (covered by the test suite and CI).
 9. The AI SDK for Python is in beta: the adapter's tests assert that `ai` honours the injected `httpx2` client, base URL, key, and protocol, so an incompatible `ai` release fails CI rather than at runtime — but confirm streaming and tool calls against your real gateway.
 
 ## Development
 
 Python 3.12+, [uv](https://docs.astral.sh/uv/).
 
-`llm-catalog-core`, `llm-catalog-pydantic-ai`, and `llm-catalog-ai-sdk` form a uv workspace with one lockfile.
-`llm-catalog-litellm` is a standalone project with its own lockfile and virtual environment, because a workspace resolves a single version of every dependency and LiteLLM's `openai<3` pin would hold the other adapters on SDK versions their users never install.
+The four distributions form one uv workspace with one lockfile, so every adapter is tested against the same dependency versions.
 
 ```bash
-uv sync                      # the workspace: one venv, three members editable
+uv sync                      # one venv, all four members editable
 uv run pytest                # mock-only tests; no real gateway/keys
 uv run ruff check . && uv run ruff format --check .   # covers every package
-uv run ty check packages     # strict type check (workspace members)
-uv build --all-packages      # build the workspace distributions
-
-cd packages/llm-catalog-litellm
-uv sync                      # its own venv, core installed from ../llm-catalog-core
-uv run pytest
-uv run ty check
+uv run ty check packages     # strict type check
+uv build --all-packages      # build the four distributions
 ```
 
-Local dev runs on Python 3.12 (the floor of the supported range, pinned in `.python-version`), so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.15 matrix for the workspace and 3.12–3.14 for `llm-catalog-litellm` (LiteLLM caps `requires-python` at `<3.15`).
-Both projects set `exclude-newer = "1 day"`, so `uv lock --upgrade` never resolves to a release younger than a day.
+Local dev runs on Python 3.12 (the floor of the supported range, pinned in `.python-version`), so 3.12-incompatible code is caught immediately; CI runs the full 3.12–3.15 matrix.
+The workspace sets `exclude-newer = "1 day"`, so `uv lock --upgrade` never resolves to a release younger than a day.
 
 ## Releases
 

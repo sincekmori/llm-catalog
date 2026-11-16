@@ -47,14 +47,12 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   # release-please bumps each package's pyproject.toml but knows nothing about
-  # uv, so the lockfiles (which record the local packages' own versions) would
+  # uv, so the lockfile (which records the local packages' own versions) would
   # drift on every release and sneak into someone's next unrelated commit.
   # Re-lock on the release PR branch itself so the PR ships consistent
   # metadata; CI's `uv sync --locked` guards against drift landing anywhere
   # else. Runs whenever release-please created or updated the PR, so it
-  # self-heals on every push to main while the PR is open. There are two
-  # lockfiles: the workspace's, and the standalone llm-catalog-litellm
-  # project's (which records the core it depends on by path).
+  # self-heals on every push to main while the PR is open.
   sync-lockfile:
     needs: release-please
     if: ${{ needs.release-please.outputs.pr }}
@@ -67,18 +65,15 @@ jobs:
           ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
       - uses: astral-sh/setup-uv@v7
       - run: uv lock
-      - run: uv lock
-        working-directory: packages/llm-catalog-litellm
-      - name: Commit and push the synced lockfiles
+      - name: Commit and push the synced lockfile
         run: |
-          locks="uv.lock packages/llm-catalog-litellm/uv.lock"
-          if git diff --quiet -- $locks; then
-            echo "lockfiles already in sync"
+          if git diff --quiet -- uv.lock; then
+            echo "lockfile already in sync"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: sync uv.lock with the released package versions" -- $locks
+          git commit -m "chore: sync uv.lock with the released package versions" -- uv.lock
           git push
 
   # One publish job per package: PyPI pending publishers are unique per
@@ -123,8 +118,6 @@ jobs:
       - run: uv build --package llm-catalog-ai-sdk --out-dir dist
       - run: uv publish
 
-  # llm-catalog-litellm is a standalone project, not a workspace member, so it
-  # is built by path rather than with --package.
   publish-litellm:
     needs: release-please
     if: contains(needs.release-please.outputs.paths_released, 'packages/llm-catalog-litellm')
@@ -135,5 +128,5 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv build packages/llm-catalog-litellm --out-dir dist
+      - run: uv build --package llm-catalog-litellm --out-dir dist
       - run: uv publish

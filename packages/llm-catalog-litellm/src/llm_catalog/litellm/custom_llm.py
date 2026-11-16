@@ -198,6 +198,12 @@ class ChatCatalogLLM(CustomLLM):
     # --- client construction (transport carries the path rewrite) -----------
     # A gateway model gets the path rewrite; a direct model (path_template is
     # None) only the declarative headers/query and the code-level hooks.
+    #
+    # The clients are ``httpx`` ones because LiteLLM is built on ``httpx``: its
+    # own handlers are, and so are the clients it hands the OpenAI SDK. OpenAI
+    # SDK 3.x annotates ``http_client`` as ``httpx2`` only but accepts an
+    # ``httpx`` client at runtime (the path LiteLLM itself relies on), hence
+    # the ``ty: ignore`` below.
 
     def _async_client(self, rm: ResolvedModel) -> AsyncHTTPHandler | AsyncOpenAI:
         client = httpx.AsyncClient(
@@ -210,7 +216,9 @@ class ChatCatalogLLM(CustomLLM):
         )
         if _VENDOR_TO_LITELLM.get(rm.vendor) == "openai":
             return AsyncOpenAI(
-                api_key=rm.api_key(), base_url=rm.base_url, http_client=client
+                api_key=rm.api_key(),
+                base_url=rm.base_url,
+                http_client=client,  # ty: ignore[invalid-argument-type]
             )
         handler = AsyncHTTPHandler()
         handler.client = client
@@ -227,7 +235,9 @@ class ChatCatalogLLM(CustomLLM):
         )
         if _VENDOR_TO_LITELLM.get(rm.vendor) == "openai":
             return OpenAI(
-                api_key=rm.api_key(), base_url=rm.base_url, http_client=client
+                api_key=rm.api_key(),
+                base_url=rm.base_url,
+                http_client=client,  # ty: ignore[invalid-argument-type]
             )
         return HTTPHandler(client=client)
 
@@ -329,7 +339,7 @@ class ChatCatalogLLM(CustomLLM):
         for chunk in response:
             yield _to_generic_chunk(chunk)
 
-    async def astreaming(  # ty: ignore[invalid-method-override]
+    async def astreaming(  # ty: ignore[incompatible-method-override]
         self,
         model: str,
         messages: list,

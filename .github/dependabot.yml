@@ -2,7 +2,7 @@
 # don't silently fall behind. Dependabot opens weekly update PRs; CI gates them.
 #
 # Python updates wait until a release has been public for 1 day (`cooldown`),
-# matching the `exclude-newer = "1 day"` supply-chain guard in the pyprojects.
+# matching the `exclude-newer = "1 day"` supply-chain guard in pyproject.toml.
 # Security updates are exempt from the cooldown.
 version: 2
 updates:
@@ -14,7 +14,7 @@ updates:
       actions:
         patterns: ["*"]
 
-  # The uv workspace (core, pydantic-ai, ai-sdk).
+  # The uv workspace (core, pydantic-ai, ai-sdk, litellm) and its one lockfile.
   - package-ecosystem: uv
     directory: /
     schedule:
@@ -23,15 +23,4 @@ updates:
       default-days: 1
     groups:
       python:
-        patterns: ["*"]
-
-  # The standalone llm-catalog-litellm project and its own lockfile.
-  - package-ecosystem: uv
-    directory: /packages/llm-catalog-litellm
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 1
-    groups:
-      python-litellm:
         patterns: ["*"]
