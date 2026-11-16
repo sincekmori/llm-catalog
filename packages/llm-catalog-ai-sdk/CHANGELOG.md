@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-ai-sdk-v0.2.1...llm-catalog-ai-sdk-v0.2.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* **ai-sdk:** allow ai 0.9.x, whose 0.9.0 changes (ToolRunner tracking, hook events, DurableAgent, TypeSafe adapter) do not touch the provider, Model, protocol, or InferenceRequestParams surface this adapter uses ([0afa704](https://github.com/sincekmori/llm-catalog/commit/0afa704f45e1b17093a350fc8fa56f64d3cdd69c))
+
 ## [0.2.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-ai-sdk-v0.2.0...llm-catalog-ai-sdk-v0.2.1) (2026-10-10)
 
 
