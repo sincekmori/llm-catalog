@@ -1388,7 +1388,7 @@ wheels = [
 
 [[package]]
 name = "llm-catalog-ai-sdk"
-version = "0.2.1"
+version = "0.2.2"
 source = { editable = "packages/llm-catalog-ai-sdk" }
 dependencies = [
     { name = "ai", extra = ["anthropic", "openai"] },
