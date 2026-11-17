@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-pydantic-ai-v0.7.1...llm-catalog-pydantic-ai-v0.7.2) (2026-11-17)
+
+
+### Documentation
+
+* **core:** describe the httpx transport as the one LiteLLM uses regardless of the OpenAI SDK version ([fd45804](https://github.com/sincekmori/llm-catalog/commit/fd45804d55e6f947bb60feaecea4d6463953c419))
+
 ## [0.7.1](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-pydantic-ai-v0.7.0...llm-catalog-pydantic-ai-v0.7.1) (2026-10-10)
 
 
