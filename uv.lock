@@ -1405,7 +1405,7 @@ requires-dist = [
 
 [[package]]
 name = "llm-catalog-core"
-version = "0.10.6"
+version = "0.10.7"
 source = { editable = "packages/llm-catalog-core" }
 dependencies = [
     { name = "httpx" },
@@ -1444,7 +1444,7 @@ requires-dist = [
 
 [[package]]
 name = "llm-catalog-pydantic-ai"
-version = "0.7.1"
+version = "0.7.2"
 source = { editable = "packages/llm-catalog-pydantic-ai" }
 dependencies = [
     { name = "httpx2" },
