@@ -182,6 +182,8 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
             "cacheRead": 0.05,
             "cacheWrite": 1.25,
         },
+        "gpt-6.2-astra": {"input": 8, "output": 40, "cacheRead": 0.4, "cacheWrite": 10},
+        "gpt-6.2-sol": {"input": 2, "output": 10, "cacheRead": 0.1, "cacheWrite": 2.5},
         "gpt-daybreak-blue-latest": {
             "input": 4,
             "output": 20,
@@ -284,7 +286,6 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "grok-4.5": {"input": 2, "output": 6, "cacheRead": 0.3},
         "grok-4.6": {"input": 2, "output": 6, "cacheRead": 0.5},
         "grok-4.7": {"input": 2, "output": 6, "cacheRead": 0.5},
-        "grok-build-0.1": {"input": 1, "output": 2, "cacheRead": 0.2},
     },
     "deepseek": {
         "deepseek-flash": {"input": 0.15, "output": 0.6, "cacheRead": 0.003},
@@ -340,6 +341,7 @@ MODEL_COSTS: dict[str, dict[str, dict[str, float]]] = {
         "gemini-4-argon": {"input": 2, "output": 10, "cacheRead": 0.1},
         "gemini-4-carbon": {"input": 2, "output": 10, "cacheRead": 0.1},
         "gemini-4-hydrogen": {"input": 1.5, "output": 7.5, "cacheRead": 0.075},
+        "gemini-4-neon": {"input": 3, "output": 15, "cacheRead": 0.15},
         "gemini-embedding-001": {"input": 0.15, "output": 0},
         "gemini-embedding-2": {"input": 0.2, "output": 0},
         "gemini-flash-latest": {"input": 0.75, "output": 3.75, "cacheRead": 0.075},
