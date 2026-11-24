@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.7](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.10.6...llm-catalog-core-v0.10.7) (2026-11-24)
+
+
+### Bug Fixes
+
+* refresh the embedded models.dev cost snapshot ([0d4ef4d](https://github.com/sincekmori/llm-catalog/commit/0d4ef4d0f0e81235df0c03268530a47046a7a7c5))
+* refresh the embedded models.dev cost snapshot ([e218fe3](https://github.com/sincekmori/llm-catalog/commit/e218fe3d78afe606b5131b50f307ed0dbebd2e8e))
+
 ## [0.10.6](https://github.com/sincekmori/llm-catalog/compare/llm-catalog-core-v0.10.5...llm-catalog-core-v0.10.6) (2026-11-16)
 
 
